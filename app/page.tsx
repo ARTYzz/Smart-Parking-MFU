@@ -5,9 +5,10 @@ import { ZoneCard } from "@/components/parking/zone-card";
 import { ZoneSummaryCard } from "@/components/parking/zone-summary-card";
 import { mockParkingZones } from "@/lib/mock-data";
 import { buildParkingSummary } from "@/lib/summary";
+import { getPublicZonesOrFallback } from "@/lib/api";
 
-export default function HomePage() {
-  const zones = mockParkingZones;
+export default async function HomePage() {
+  const zones = await getPublicZonesOrFallback(mockParkingZones);
   const summary = buildParkingSummary(zones);
   const generatedAt = new Date().toLocaleString("th-TH", {
     dateStyle: "medium",
@@ -56,7 +57,7 @@ export default function HomePage() {
               เริ่มค้นหาจุดจอดตอนนี้
             </Link>
             <Link
-              href="/zone/A"
+              href="/parking-zones"
               className="secondary-cta rounded-xl px-5 py-3 text-sm font-semibold"
             >
               ดูแผนที่โซนจอดรถ
@@ -100,7 +101,7 @@ export default function HomePage() {
           </Link>
 
           <Link
-            href="/zone/A"
+            href="/parking-zones"
             className="card-surface rounded-3xl p-5 transition hover:-translate-y-0.5"
           >
             <p className="label-caps text-xs font-semibold text-[#7D000F]/80">Navigation</p>

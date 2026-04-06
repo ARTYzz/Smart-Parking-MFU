@@ -137,10 +137,10 @@ export const mockParkingDetailsByZone: Record<string, ParkingSubZone[]> = {
       status: "nearly-full",
     },
   ],
-  C1: [
+  C5: [
     {
-      id: "C1-1",
-      name: "C1-1",
+      id: "C5-1",
+      name: "C5-1",
       rowNumber: 1,
       timestamp: "2026-03-20T10:15:00+07:00",
       total: 20,
@@ -161,8 +161,8 @@ export const mockParkingDetailsByZone: Record<string, ParkingSubZone[]> = {
       status: "full",
     },
     {
-      id: "C1-2",
-      name: "C1-2",
+      id: "C5-2",
+      name: "C5-2",
       rowNumber: 2,
       timestamp: "2026-03-20T10:15:00+07:00",
       total: 20,
@@ -183,8 +183,8 @@ export const mockParkingDetailsByZone: Record<string, ParkingSubZone[]> = {
       status: "full",
     },
     {
-      id: "C1-3",
-      name: "C1-3",
+      id: "C5-3",
+      name: "C5-3",
       rowNumber: 3,
       timestamp: "2026-03-20T10:15:00+07:00",
       total: 20,

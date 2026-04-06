@@ -46,8 +46,8 @@ export const mockParkingZones: ParkingZone[] = [
     status: "nearly-full",
   },
   {
-    id: "C1",
-    name: "โซน C1",
+    id: "C5",
+    name: "โซน C5",
     rowNumber: 3,
     timestamp: "2026-03-20T10:15:00+07:00",
     total: 60,

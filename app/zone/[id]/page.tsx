@@ -6,6 +6,7 @@ import { SubZoneCard } from "@/components/parking/subzone-card";
 import { ZoneSummaryCard } from "@/components/parking/zone-summary-card";
 import { getMockParkingDetailsByZone } from "@/lib/detail";
 import { buildParkingSummary } from "@/lib/summary";
+import { getC5CameraSlots, getC5CameraSummary } from "@/lib/api";
 
 interface ZoneDetailPageProps {
   params: Promise<{
@@ -15,12 +16,24 @@ interface ZoneDetailPageProps {
 
 export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
   const { id } = await params;
-  const subZones = getMockParkingDetailsByZone(id);
+  const zoneId = id.toUpperCase();
+  const isC5 = zoneId === "C5";
+
+  const [cameraSummary, c5Slots] = isC5
+    ? await Promise.all([getC5CameraSummary(), getC5CameraSlots()])
+    : [null, null];
+
+  const subZones = isC5 && c5Slots ? c5Slots : getMockParkingDetailsByZone(zoneId);
   const summary = buildParkingSummary(subZones);
-  const generatedAt = new Date().toLocaleString("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const generatedAt = cameraSummary?.timestamp
+    ? new Date(cameraSummary.timestamp).toLocaleString("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : new Date().toLocaleString("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
 
   return (
     <main className="min-h-screen">
@@ -36,7 +49,7 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
             Zone Detail
           </p>
           <h1 className="display-font mt-2 text-4xl font-extrabold text-[#191C1D] md:text-5xl">
-            โซน {id}
+            โซน {zoneId}
           </h1>
           <p className="mt-3 max-w-2xl text-[#59413F]">
             ตรวจสอบข้อมูลพื้นที่ย่อยภายในโซนนี้
@@ -87,19 +100,28 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
             <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
               <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-2xl bg-[#F3F4F5]">
                 <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(125,0,15,0.08),transparent_45%,rgba(119,90,25,0.08))]" />
-                <p className="relative z-10 text-sm font-medium text-[#59413F]">
-                  Snapshot Preview Placeholder
-                </p>
+                {cameraSummary?.snapLink ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={cameraSummary.snapLink}
+                    alt={`Snapshot ของโซน ${zoneId}`}
+                    className="relative z-10 h-full w-full object-cover"
+                  />
+                ) : (
+                  <p className="relative z-10 text-sm font-medium text-[#59413F]">
+                    Snapshot Preview Placeholder
+                  </p>
+                )}
               </div>
               <div className="rounded-2xl bg-[#F3F4F5] p-4">
                 <p className="label-caps text-[0.68rem] font-semibold text-[#7D000F]/80">
                   Camera Telemetry
                 </p>
                 <ul className="mt-3 space-y-3 text-sm text-[#59413F]">
-                  <li>Source: CCTV-ZONE-{id}</li>
+                  <li>Source: {isC5 ? "cam_1pw709e5lwrswc5n" : `CCTV-ZONE-${zoneId}`}</li>
                   <li>FPS: 15 (mock)</li>
                   <li>Latency: 220ms (mock)</li>
-                  <li>Detection: Standby</li>
+                  <li>Detection: {cameraSummary ? "Updated" : "Standby"}</li>
                 </ul>
               </div>
             </div>

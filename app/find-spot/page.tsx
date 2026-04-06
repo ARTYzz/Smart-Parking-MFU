@@ -17,6 +17,8 @@ import {
   UserCircle2,
 } from "lucide-react";
 import { mockParkingZones } from "@/lib/mock-data";
+import { getPublicZonesOrFallback } from "@/lib/api";
+import type { ParkingZone } from "@/types/parking";
 
 type VehicleType = "car" | "motorcycle";
 
@@ -31,7 +33,7 @@ type ZoneMapItem = {
 const zonePositionMap: Record<string, { x: string; y: string }> = {
   A: { x: "10%", y: "18%" },
   B: { x: "48%", y: "12%" },
-  C1: { x: "73%", y: "38%" },
+  C5: { x: "73%", y: "38%" },
   D: { x: "24%", y: "62%" },
 };
 
@@ -44,9 +46,9 @@ const sideMenuTop = [
     active: true,
     href: "/find-spot",
   },
-  { id: "zones", label: "Parking Zones", icon: Navigation, href: "/zone/A" },
-  { id: "vehicle", label: "My Vehicle", icon: Car, href: "/zone/B" },
-  { id: "history", label: "History", icon: History, href: "/zone/C1" },
+  { id: "zones", label: "Parking Zones", icon: Navigation, href: "/parking-zones" },
+  { id: "vehicle", label: "My Vehicle", icon: Car, href: "/my-vehicle" },
+  { id: "history", label: "History", icon: History, href: "/history" },
 ];
 
 const sideMenuBottom = [
@@ -61,6 +63,7 @@ function buildSpot(zone: string, vehicleType: VehicleType): string {
 }
 
 export default function FindSpotPage() {
+  const [zones, setZones] = useState<ParkingZone[]>(mockParkingZones);
   const [vehicleType, setVehicleType] = useState<VehicleType>("car");
   const [selectedZone, setSelectedZone] = useState<string>("A");
   const [timer, setTimer] = useState<number>(0);
@@ -72,8 +75,25 @@ export default function FindSpotPage() {
   );
   const hasReservation = timer > 0;
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadZones = async () => {
+      const liveZones = await getPublicZonesOrFallback(mockParkingZones);
+      if (isMounted) {
+        setZones(liveZones);
+      }
+    };
+
+    loadZones();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const zoneMap = useMemo<ZoneMapItem[]>(() => {
-    return mockParkingZones.map((zone) => {
+    return zones.map((zone) => {
       const defaultPos = { x: "12%", y: "20%" };
       const pos = zonePositionMap[zone.id] ?? defaultPos;
       const vehicleAvailable = vehicleType === "car" ? zone.car.free : zone.motorcycle.free;
@@ -86,7 +106,7 @@ export default function FindSpotPage() {
         y: pos.y,
       };
     });
-  }, [vehicleType]);
+  }, [vehicleType, zones]);
 
   useEffect(() => {
     if (timer <= 0) {
@@ -112,10 +132,6 @@ export default function FindSpotPage() {
     [selectedZone, zoneMap],
   );
 
-  const bestZoneForVehicle = useMemo(() => {
-    return [...zoneMap].sort((a, b) => b.vehicleAvailable - a.vehicleAvailable)[0];
-  }, [zoneMap]);
-
   const timerLabel = useMemo(() => {
     const minute = Math.floor(timer / 60)
       .toString()
@@ -125,30 +141,15 @@ export default function FindSpotPage() {
   }, [timer]);
 
   const handleFindSpot = () => {
-    const targetZone =
-      activeZone.vehicleAvailable > 0
-        ? activeZone
-        : bestZoneForVehicle.vehicleAvailable > 0
-          ? bestZoneForVehicle
-          : null;
-
-    if (!targetZone) {
-      setStatusMessage("ขณะนี้ไม่มีช่องว่างสำหรับประเภทรถที่เลือก");
+    if (activeZone.vehicleAvailable <= 0) {
+      setStatusMessage(`โซน ${activeZone.id} ไม่มีช่องว่างสำหรับประเภทรถที่เลือก`);
       setTimer(0);
       return;
     }
 
-    setSelectedZone(targetZone.id);
-    setAssignedSpot(buildSpot(targetZone.id, vehicleType));
+    setAssignedSpot(buildSpot(activeZone.id, vehicleType));
     setTimer(15 * 60);
-
-    if (targetZone.id === activeZone.id) {
-      setStatusMessage(`จองช่องในโซน ${targetZone.id} สำเร็จแล้ว`);
-    } else {
-      setStatusMessage(
-        `โซน ${activeZone.id} ไม่พอ ระบบแนะนำโซน ${targetZone.id} แทน`,
-      );
-    }
+    setStatusMessage(`จองช่องในโซน ${activeZone.id} สำเร็จแล้ว`);
   };
 
   const handleReportOccupied = () => {

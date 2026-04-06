@@ -29,7 +29,7 @@ export function AppHeader() {
             Quick Finder
           </Link>
           <Link
-            href="/zone/A"
+            href="/parking-zones"
             className="rounded-full bg-white/55 px-4 py-2 text-[#7D000F] transition hover:bg-white"
           >
             Parking Zones
