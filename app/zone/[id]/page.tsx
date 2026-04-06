@@ -6,7 +6,11 @@ import { SubZoneCard } from "@/components/parking/subzone-card";
 import { ZoneSummaryCard } from "@/components/parking/zone-summary-card";
 import { getMockParkingDetailsByZone } from "@/lib/detail";
 import { buildParkingSummary } from "@/lib/summary";
-import { getC5CameraSlots, getC5CameraSummary } from "@/lib/api";
+import {
+  getC5CameraSlots,
+  getC5CameraSummary,
+  getParkingZoneDetails,
+} from "@/lib/api";
 
 interface ZoneDetailPageProps {
   params: Promise<{
@@ -18,12 +22,61 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
   const { id } = await params;
   const zoneId = id.toUpperCase();
   const isC5 = zoneId === "C5";
+  const hasDetailsApi = Boolean(process.env.NEXT_PUBLIC_DETAILS_API);
 
-  const [cameraSummary, c5Slots] = isC5
-    ? await Promise.all([getC5CameraSummary(), getC5CameraSlots()])
-    : [null, null];
+  const fallbackReasons: string[] = [];
 
-  const subZones = isC5 && c5Slots ? c5Slots : getMockParkingDetailsByZone(zoneId);
+  const [cameraSummary, c5Slots, detailSubZones] = await Promise.all([
+    isC5
+      ? getC5CameraSummary().catch((error) => {
+          const reason = error instanceof Error ? error.message : "unknown error";
+          fallbackReasons.push(`camera summary: ${reason}`);
+          return null;
+        })
+      : Promise.resolve(null),
+    isC5
+      ? getC5CameraSlots().catch((error) => {
+          const reason = error instanceof Error ? error.message : "unknown error";
+          fallbackReasons.push(`camera slots: ${reason}`);
+          return null;
+        })
+      : Promise.resolve(null),
+    hasDetailsApi
+      ? getParkingZoneDetails(zoneId).catch((error) => {
+          const reason = error instanceof Error ? error.message : "unknown error";
+          fallbackReasons.push(`details API: ${reason}`);
+          return [];
+        })
+      : Promise.resolve([]),
+  ]);
+
+  let dataSource: "camera-slots" | "details-api" | "mock" = "mock";
+  let subZones = getMockParkingDetailsByZone(zoneId);
+
+  if (isC5 && c5Slots && c5Slots.length > 0) {
+    dataSource = "camera-slots";
+    subZones = c5Slots;
+  } else if (detailSubZones.length > 0) {
+    dataSource = "details-api";
+    subZones = detailSubZones;
+  } else {
+    if (isC5 && (!c5Slots || c5Slots.length === 0)) {
+      fallbackReasons.push("camera slots: empty response");
+    }
+    if (hasDetailsApi) {
+      fallbackReasons.push("details API: empty response");
+    } else {
+      fallbackReasons.push("details API: not configured (optional)");
+    }
+  }
+
+  const sourceLabel =
+    dataSource === "camera-slots"
+      ? "camera slots API"
+      : dataSource === "details-api"
+        ? "NEXT_PUBLIC_DETAILS_API"
+        : "mock fallback";
+
   const summary = buildParkingSummary(subZones);
   const generatedAt = cameraSummary?.timestamp
     ? new Date(cameraSummary.timestamp).toLocaleString("th-TH", {
@@ -56,6 +109,16 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
             พร้อมจำนวนช่องจอดว่างและใช้งานแยกตามประเภทยานพาหนะ
           </p>
           <p className="mt-4 text-xs text-[#59413F]">อัปเดตล่าสุด {generatedAt}</p>
+          <p className="mt-1 text-xs text-[#59413F]">แหล่งข้อมูล: {sourceLabel}</p>
+
+          {dataSource === "mock" ? (
+            <p className="mt-2 rounded-xl bg-[#F3F4F5] px-3 py-2 text-xs text-[#59413F]">
+              กำลังแสดง mock เพราะ API ยังไม่พร้อม:
+              {fallbackReasons.length > 0
+                ? ` ${fallbackReasons.join(" | ")}`
+                : " ไม่พบข้อมูลจาก API"}
+            </p>
+          ) : null}
         </section>
 
         <div className="mt-6">

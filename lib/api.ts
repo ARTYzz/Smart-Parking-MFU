@@ -16,13 +16,37 @@ const PUBLIC_API_BASE =
   process.env.NEXT_PUBLIC_PUBLIC_API_BASE ?? "http://localhost:3000/api/public";
 const C5_CAMERA_ID =
   process.env.NEXT_PUBLIC_CAMERA_C5_ID ?? "cam_1pw709e5lwrswc5n";
+const PARKING_API_DEBUG = process.env.NEXT_PUBLIC_PARKING_API_DEBUG === "1";
 
 type GenericObject = Record<string, unknown>;
+const LIST_KEYS = [
+  "data",
+  "items",
+  "zones",
+  "slots",
+  "results",
+  "records",
+  "list",
+  "parkingSlots",
+];
 
 export interface PublicCameraSummary {
   zoneId: string;
   timestamp: string | null;
   snapLink: string | null;
+}
+
+function debugLog(message: string, meta?: Record<string, unknown>) {
+  if (!PARKING_API_DEBUG) {
+    return;
+  }
+
+  if (meta) {
+    console.info(`[parking-api] ${message}`, meta);
+    return;
+  }
+
+  console.info(`[parking-api] ${message}`);
 }
 
 function asObject(value: unknown): GenericObject {
@@ -43,7 +67,31 @@ function asList(value: unknown): GenericObject[] {
 
 function unwrapPayload(value: unknown): unknown {
   const root = asObject(value);
-  return root.data ?? root.items ?? root.zones ?? root.slots ?? value;
+  return root.data ?? root.items ?? root.zones ?? root.slots ?? root.results ?? value;
+}
+
+function extractList(value: unknown): GenericObject[] {
+  if (Array.isArray(value)) {
+    return asList(value);
+  }
+
+  const queue: unknown[] = [value];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (Array.isArray(current)) {
+      return asList(current);
+    }
+
+    const obj = asObject(current);
+    for (const key of LIST_KEYS) {
+      if (obj[key] !== undefined) {
+        queue.push(obj[key]);
+      }
+    }
+  }
+
+  return [];
 }
 
 function pick<T>(obj: GenericObject, keys: string[]): T | undefined {
@@ -64,24 +112,24 @@ function mapPublicZoneItemToParkingZone(item: GenericObject, index: number): Par
 
   const total = toNumber(pick<number | string>(item, ["total", "capacity", "slotsTotal"]));
   const occupied = toNumber(
-    pick<number | string>(item, ["occupied", "occupiedCount", "used"]),
+    pick<number | string>(item, ["occupied", "occupiedCount", "used", "filled"]),
   );
-  const freeRaw = pick<number | string>(item, ["free", "available", "freeCount"]);
+  const freeRaw = pick<number | string>(item, ["free", "available", "freeCount", "empty"]);
   const free = freeRaw !== undefined ? toNumber(freeRaw) : Math.max(total - occupied, 0);
 
   const skipped = toNumber(pick<number | string>(item, ["skipped"]));
 
   const carOccupied = toNumber(
-    pick<number | string>(item, ["car-occ", "carOccupied", "car_occupied"]),
+    pick<number | string>(item, ["car-occ", "carOccupied", "car_occupied", "carOcc"]),
   );
   const carFree = toNumber(
-    pick<number | string>(item, ["car-free", "carFree", "car_free"]),
+    pick<number | string>(item, ["car-free", "carFree", "car_free", "carFreeCount"]),
   );
   const motorcycleOccupied = toNumber(
-    pick<number | string>(item, ["mt-occ", "motorcycleOccupied", "motorcycle_occupied"]),
+    pick<number | string>(item, ["mt-occ", "mt_occ", "motorcycleOccupied", "motorcycle_occupied"]),
   );
   const motorcycleFree = toNumber(
-    pick<number | string>(item, ["mt-free", "motorcycleFree", "motorcycle_free"]),
+    pick<number | string>(item, ["mt-free", "mt_free", "motorcycleFree", "motorcycle_free"]),
   );
 
   const hasVehicleBreakdown =
@@ -142,7 +190,7 @@ function mapPublicSlotToParkingSubZone(item: GenericObject, index: number): Park
   const isOccupied =
     occupiedRaw !== undefined
       ? ["true", "1", "yes"].includes(String(occupiedRaw).toLowerCase())
-      : ["occupied", "busy", "taken", "full"].includes(statusText);
+      : ["occupied", "busy", "taken", "full", "filled", "used"].includes(statusText);
 
   const vehicleType =
     toNullableString(pick<string>(item, ["vehicleType", "vehicle_type", "type"]))?.toLowerCase() ??
@@ -171,7 +219,10 @@ function mapPublicSlotToParkingSubZone(item: GenericObject, index: number): Park
       ? { occupied, free }
       : { occupied: 0, free: 0 },
     snapLink: null,
-    hasData: true,
+    hasData:
+      toNullableString(pick<string>(item, ["timestamp", "updatedAt", "processedAt"])) !==
+        null ||
+      total > 0,
     occupancyRate: calculateOccupancyRate(occupied, total),
     status: getParkingStatus(true, occupied, total),
   };
@@ -228,9 +279,18 @@ export async function getParkingZoneDetails(
 }
 
 export async function getPublicZones(): Promise<ParkingZone[]> {
-  const payload = await fetchJson(`${PUBLIC_API_BASE}/zones`);
-  const list = asList(unwrapPayload(payload));
-  return list.map((item, index) => mapPublicZoneItemToParkingZone(item, index));
+  const url = `${PUBLIC_API_BASE}/zones`;
+  const payload = await fetchJson(url);
+  const list = extractList(unwrapPayload(payload));
+  const zones = list.map((item, index) => mapPublicZoneItemToParkingZone(item, index));
+
+  debugLog("Loaded public zones", {
+    url,
+    rawCount: list.length,
+    mappedCount: zones.length,
+  });
+
+  return zones;
 }
 
 export async function getPublicZonesOrFallback(
@@ -246,36 +306,55 @@ export async function getPublicZonesOrFallback(
 
 export async function getC5CameraSummary(): Promise<PublicCameraSummary | null> {
   try {
-    const payload = asObject(
-      unwrapPayload(
-        await fetchJson(`${PUBLIC_API_BASE}/cameras/${encodeURIComponent(C5_CAMERA_ID)}`),
-      ),
-    );
+    const url = `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(C5_CAMERA_ID)}`;
+    const raw = await fetchJson(url);
+    const payload = asObject(unwrapPayload(raw));
+    const nestedCamera = asObject(pick<unknown>(payload, ["camera", "result", "latestResult"]));
+    const effective = Object.keys(payload).length > 0 ? payload : nestedCamera;
 
-    return {
+    const summary = {
       zoneId:
-        toNullableString(pick<string>(payload, ["zone", "zoneId", "zone_id"]))
+        toNullableString(pick<string>(effective, ["zone", "zoneId", "zone_id", "zoneCode"]))
           ?.toUpperCase() ?? "C5",
       timestamp: toNullableString(
-        pick<string>(payload, ["timestamp", "updatedAt", "processedAt"]),
+        pick<string>(effective, ["timestamp", "updatedAt", "processedAt", "createdAt"]),
       ),
       snapLink: toNullableString(
-        pick<string>(payload, ["snap_link", "snapLink", "snapshotUrl"]),
+        pick<string>(effective, ["snap_link", "snapLink", "snapshotUrl", "snapshot"]),
       ),
     };
+
+    debugLog("Loaded C5 camera summary", {
+      url,
+      hasTimestamp: summary.timestamp !== null,
+      hasSnapshot: summary.snapLink !== null,
+      zoneId: summary.zoneId,
+    });
+
+    return summary;
   } catch {
+    debugLog("Failed to load C5 camera summary");
     return null;
   }
 }
 
 export async function getC5CameraSlots(): Promise<ParkingSubZone[] | null> {
   try {
-    const payload = await fetchJson(
-      `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(C5_CAMERA_ID)}/slots`,
-    );
-    const list = asList(unwrapPayload(payload));
-    return list.map((item, index) => mapPublicSlotToParkingSubZone(item, index));
+    const url = `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(C5_CAMERA_ID)}/slots`;
+    const payload = await fetchJson(url);
+    const list = extractList(unwrapPayload(payload));
+    const slots = list.map((item, index) => mapPublicSlotToParkingSubZone(item, index));
+
+    debugLog("Loaded C5 camera slots", {
+      url,
+      rawCount: list.length,
+      mappedCount: slots.length,
+      occupiedCount: slots.filter((slot) => slot.occupied > 0).length,
+    });
+
+    return slots;
   } catch {
+    debugLog("Failed to load C5 camera slots");
     return null;
   }
 }
