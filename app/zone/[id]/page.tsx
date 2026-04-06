@@ -17,9 +17,13 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
   const { id } = await params;
   const subZones = getMockParkingDetailsByZone(id);
   const summary = buildParkingSummary(subZones);
+  const generatedAt = new Date().toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <main className="min-h-screen">
       <AppHeader />
 
       <PageContainer>
@@ -27,25 +31,32 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
           <BackLink href="/" label="กลับหน้าหลัก" />
         </div>
 
-        <section>
-          <p className="text-sm font-medium text-blue-600">รายละเอียดโซน</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">โซน {id}</h1>
-          <p className="mt-2 text-slate-600">
+        <section className="section-surface rounded-3xl p-6 md:p-8">
+          <p className="label-caps text-xs font-semibold text-[#7D000F]/80">
+            Zone Detail
+          </p>
+          <h1 className="display-font mt-2 text-4xl font-extrabold text-[#191C1D] md:text-5xl">
+            โซน {id}
+          </h1>
+          <p className="mt-3 max-w-2xl text-[#59413F]">
             ตรวจสอบข้อมูลพื้นที่ย่อยภายในโซนนี้
             พร้อมจำนวนช่องจอดว่างและใช้งานแยกตามประเภทยานพาหนะ
           </p>
+          <p className="mt-4 text-xs text-[#59413F]">อัปเดตล่าสุด {generatedAt}</p>
         </section>
 
         <div className="mt-6">
           <ZoneSummaryCard summary={summary} />
         </div>
 
-        <section className="mt-8">
+        <section className="mt-8 section-surface rounded-3xl p-5 md:p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="display-font text-2xl font-extrabold text-[#191C1D]">
               รายการพื้นที่ย่อย
             </h2>
-            <p className="text-sm text-slate-500">{subZones.length} พื้นที่</p>
+            <p className="label-caps text-xs font-semibold text-[#59413F]">
+              {subZones.length} areas
+            </p>
           </div>
 
           {subZones.length === 0 ? (
@@ -63,17 +74,34 @@ export default async function ZoneDetailPage({ params }: ZoneDetailPageProps) {
         </section>
 
         <section className="mt-8">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">
+          <div className="card-surface rounded-3xl p-5 md:p-6">
+            <p className="label-caps text-xs font-semibold text-[#7D000F]/80">Camera Feed</p>
+            <h2 className="display-font mt-2 text-2xl font-extrabold text-[#191C1D]">
               ภาพ Snapshot จากกล้อง CCTV
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-[#59413F]">
               ในขั้นนี้ยังใช้ placeholder อยู่ ก่อนจะเชื่อม snap_link จาก API
               จริงใน step ถัดไป
             </p>
 
-            <div className="mt-4 flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-500">
-              Snapshot Preview Placeholder
+            <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
+              <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-2xl bg-[#F3F4F5]">
+                <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(125,0,15,0.08),transparent_45%,rgba(119,90,25,0.08))]" />
+                <p className="relative z-10 text-sm font-medium text-[#59413F]">
+                  Snapshot Preview Placeholder
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#F3F4F5] p-4">
+                <p className="label-caps text-[0.68rem] font-semibold text-[#7D000F]/80">
+                  Camera Telemetry
+                </p>
+                <ul className="mt-3 space-y-3 text-sm text-[#59413F]">
+                  <li>Source: CCTV-ZONE-{id}</li>
+                  <li>FPS: 15 (mock)</li>
+                  <li>Latency: 220ms (mock)</li>
+                  <li>Detection: Standby</li>
+                </ul>
+              </div>
             </div>
           </div>
         </section>

@@ -5,9 +5,12 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description }: EmptyStateProps) {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-      <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-      <p className="mt-2 text-sm text-slate-600">{description}</p>
+    <div className="rounded-3xl bg-[#F3F4F5] p-8 text-center">
+      <p className="label-caps text-xs font-semibold text-[#7D000F]/75">No Feed</p>
+      <h3 className="display-font mt-2 text-2xl font-extrabold text-[#191C1D]">
+        {title}
+      </h3>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-[#59413F]">{description}</p>
     </div>
   );
 }

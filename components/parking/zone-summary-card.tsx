@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ParkingSummary } from "@/types/parking";
 import { VehicleStat } from "@/components/parking/vehicle-stat";
 
@@ -6,26 +7,40 @@ interface ZoneSummaryCardProps {
 }
 
 export function ZoneSummaryCard({ summary }: ZoneSummaryCardProps) {
+  const occupancyRate =
+    summary.total > 0 ? Math.round((summary.occupied / summary.total) * 100) : 0;
+
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <section className="card-surface rounded-3xl p-5 md:p-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-600">ภาพรวมทุกโซน</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900">
+          <p className="label-caps text-xs font-semibold text-[#7D000F]/80">
+            Live Overview
+          </p>
+          <h2 className="display-font mt-2 text-2xl font-extrabold text-[#191C1D] md:text-3xl">
             ช่องจอดทั้งหมด {summary.total}
           </h2>
+          <p className="mt-2 text-sm text-[#59413F]">
+            Occupancy ปัจจุบัน {occupancyRate}% จากทุกพื้นที่ในระบบ
+          </p>
+          <div className="mt-3 h-2 w-full max-w-md rounded-full bg-[#F3F4F5]">
+            <div
+              className="h-2 rounded-full bg-gradient-to-r from-[#7D000F] to-[#A01D22]"
+              style={{ width: `${occupancyRate}%` }}
+            />
+          </div>
         </div>
 
         <div className="flex gap-3 text-sm">
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-slate-500">ใช้งาน</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">
+          <div className="rounded-2xl bg-[#F3F4F5] px-4 py-3">
+            <p className="text-[#59413F]">ใช้งาน</p>
+            <p className="display-font mt-1 text-xl font-extrabold text-[#191C1D]">
               {summary.occupied}
             </p>
           </div>
-          <div className="rounded-2xl bg-slate-50 px-4 py-3">
-            <p className="text-slate-500">ว่าง</p>
-            <p className="mt-1 text-lg font-bold text-slate-900">
+          <div className="rounded-2xl bg-[#F3F4F5] px-4 py-3">
+            <p className="text-[#59413F]">ว่าง</p>
+            <p className="display-font mt-1 text-xl font-extrabold text-[#191C1D]">
               {summary.free}
             </p>
           </div>
@@ -45,6 +60,21 @@ export function ZoneSummaryCard({ summary }: ZoneSummaryCardProps) {
           occupied={summary.motorcycle.occupied}
           free={summary.motorcycle.free}
         />
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Link
+          href="/find-spot"
+          className="primary-cta rounded-xl px-4 py-2 text-sm font-semibold"
+        >
+          เปิด Quick Finder
+        </Link>
+        <Link
+          href="/zone/A"
+          className="secondary-cta rounded-xl px-4 py-2 text-sm font-semibold"
+        >
+          ดูโซนที่แนะนำ
+        </Link>
       </div>
     </section>
   );
