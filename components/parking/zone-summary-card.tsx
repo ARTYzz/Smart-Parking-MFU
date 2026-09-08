@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { BookingAvailabilityPanel } from "@/components/booking/availability";
 import type { ParkingSummary } from "@/types/parking";
 import { VehicleStat } from "@/components/parking/vehicle-stat";
 
 interface ZoneSummaryCardProps {
   summary: ParkingSummary;
+  zoneId?: string;
 }
 
-export function ZoneSummaryCard({ summary }: ZoneSummaryCardProps) {
+export function ZoneSummaryCard({ summary, zoneId }: ZoneSummaryCardProps) {
   const occupancyRate =
     summary.total > 0 ? Math.round((summary.occupied / summary.total) * 100) : 0;
 
@@ -70,12 +72,13 @@ export function ZoneSummaryCard({ summary }: ZoneSummaryCardProps) {
           เปิด Quick Finder
         </Link>
         <Link
-          href="/zone/A"
+          href="/parking-zones"
           className="secondary-cta rounded-xl px-4 py-2 text-sm font-semibold"
         >
-          ดูโซนที่แนะนำ
+          เลือกโซนจอดรถ
         </Link>
       </div>
+      <BookingAvailabilityPanel zoneId={zoneId} />
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import type { ParkingSubZone } from "@/types/parking";
+import { SlotReservationBadge } from "@/components/booking/availability";
 import { StatusBadge } from "@/components/parking/status-badge";
 import { VehicleStat } from "@/components/parking/vehicle-stat";
 
@@ -11,6 +12,7 @@ export function SubZoneCard({ subZone }: SubZoneCardProps) {
 
   return (
     <article className="card-surface rounded-3xl p-5">
+      <SlotReservationBadge slotId={subZone.id} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="label-caps text-xs font-semibold text-[#7D000F]/80">พื้นที่ย่อย</p>

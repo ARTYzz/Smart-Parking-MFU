@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BookingAvailabilityPanel } from "@/components/booking/availability";
 import type { ParkingZone } from "@/types/parking";
 import { StatusBadge } from "@/components/parking/status-badge";
 import { VehicleStat } from "@/components/parking/vehicle-stat";
@@ -84,6 +85,7 @@ export function ZoneCard({ zone }: ZoneCardProps) {
             : "ยังไม่มีข้อมูลจากระบบ"}
         </p>
       </div>
+      <BookingAvailabilityPanel zoneId={zone.id} />
     </Link>
   );
 }

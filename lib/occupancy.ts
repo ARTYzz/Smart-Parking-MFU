@@ -17,7 +17,7 @@ export function getParkingStatus(
 
   const rate = calculateOccupancyRate(occupied, total);
 
-  if (rate >= 0.9) return "full";
+  if (rate >= 1) return "full";
   if (rate >= 0.7) return "nearly-full";
   return "available";
 }

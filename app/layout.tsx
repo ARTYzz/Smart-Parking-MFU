@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
+import { AppProvider } from "@/components/providers/app-provider";
+import { DemoControls } from "@/components/layout/demo-controls";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th" className={`${inter.variable} ${manrope.variable}`}>
-      <body className="min-h-screen font-sans antialiased">{children}</body>
+      <body className="min-h-screen font-sans antialiased"><AppProvider><DemoControls />{children}</AppProvider></body>
     </html>
   );
 }

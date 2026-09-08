@@ -1,12 +1,12 @@
+"use client";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { ZoneCard } from "@/components/parking/zone-card";
-import { mockParkingZones } from "@/lib/mock-data";
 import { BackLink } from "@/components/layout/back-link";
-import { getPublicZonesOrFallback } from "@/lib/api";
+import { useApp } from "@/components/providers/app-provider";
 
-export default async function ParkingZonesPage() {
-  const zones = await getPublicZonesOrFallback(mockParkingZones);
+export default function ParkingZonesPage() {
+  const { zones, loading, error } = useApp();
 
   return (
     <main className="min-h-screen">
@@ -27,6 +27,7 @@ export default async function ParkingZonesPage() {
         </section>
 
         <section className="mt-6 section-surface rounded-3xl p-5 md:p-6">
+          {!loading && !error && zones.length === 0 && <p>ยังไม่มีโซนจอดรถ</p>}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {zones.map((zone) => (
               <ZoneCard key={zone.id} zone={zone} />

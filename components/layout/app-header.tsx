@@ -1,41 +1,27 @@
+"use client";
 import Link from "next/link";
+import { useCallback, useRef, useState } from "react";
+import { UserRound } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { ProfileDrawer } from "./profile-drawer";
+import { useApp } from "@/components/providers/app-provider";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/constants";
 
 export function AppHeader() {
-  return (
-    <header className="glass-panel sticky top-0 z-30">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-4 md:flex-row md:items-end md:justify-between md:px-8">
-        <div className="pl-1 md:pl-3">
-          <p className="label-caps text-[0.7rem] font-semibold text-[#7D000F]/80">
-            Mae Fah Luang University
-          </p>
-          <h1 className="display-font mt-1 text-xl font-extrabold text-[#191C1D] md:text-2xl">
-            {APP_NAME}
-          </h1>
-          <p className="mt-1 text-sm text-[#59413F]">{APP_DESCRIPTION}</p>
-        </div>
-
-        <nav className="flex flex-wrap items-center gap-2 text-sm font-semibold md:justify-end">
-          <Link
-            href="/"
-            className="rounded-full bg-white/70 px-4 py-2 text-[#7D000F] transition hover:bg-white"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/find-spot"
-            className="rounded-full bg-white/70 px-4 py-2 text-[#7D000F] transition hover:bg-white"
-          >
-            Quick Finder
-          </Link>
-          <Link
-            href="/parking-zones"
-            className="rounded-full bg-white/55 px-4 py-2 text-[#7D000F] transition hover:bg-white"
-          >
-            Parking Zones
-          </Link>
-        </nav>
+  const { user } = useApp();
+  const profileTrigger = useRef<HTMLButtonElement>(null);
+  const [panel, setPanel] = useState<"profile" | "notifications" | null>(null);
+  const close = useCallback(() => setPanel(null), []);
+  return <header className="glass-panel sticky top-0 z-30">
+    <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 px-5 py-4 md:px-8">
+      <Link href="/" className="min-w-0"><p className="label-caps text-[0.6rem] font-semibold text-[#7D000F]/80 md:text-[0.7rem]">Mae Fah Luang University</p><h1 className="display-font mt-1 text-lg font-extrabold text-[#191C1D] md:text-2xl">{APP_NAME}</h1><p className="mt-1 hidden text-sm text-[#59413F] sm:block">{APP_DESCRIPTION}</p></Link>
+      <div className="relative flex items-center gap-3 justify-self-end">
+        <NotificationBell open={panel === "notifications"} onToggle={() => setPanel(value => value === "notifications" ? null : "notifications")} onClose={close} />
+        <button ref={profileTrigger} aria-label={`เปิดเมนูบัญชี ${user?.name ?? "ผู้เยี่ยมชม"}`} aria-haspopup="dialog" aria-expanded={panel === "profile"} onClick={() => setPanel("profile")} className="flex h-11 w-11 items-center justify-center rounded-full bg-[#7D000F] font-bold text-white shadow-sm ring-2 ring-white hover:bg-[#A01D22] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7D000F]">{user ? user.role.slice(0, 1).toUpperCase() : <UserRound className="h-5 w-5" />}</button>
       </div>
-    </header>
-  );
+      <nav aria-label="เมนูหลัก" className="col-span-2 flex flex-wrap gap-2 text-sm font-semibold">{[{ href: "/", label: "Dashboard" }, { href: "/find-spot", label: "Quick Finder" }, { href: "/parking-zones", label: "Parking Zones" }].map(item => <Link key={item.href} href={item.href} onClick={close} className="rounded-full bg-white/70 px-4 py-2 text-[#7D000F] hover:bg-white">{item.label}</Link>)}</nav>
+    </div>
+    {panel === "profile" && <ProfileDrawer onClose={close} returnFocus={profileTrigger} />}
+  </header>;
 }
+

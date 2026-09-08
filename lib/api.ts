@@ -2,7 +2,7 @@ import type {
   ParkingDetailApiResponse,
   ParkingZoneApiResponse,
 } from "@/types/api";
-import type { ParkingSubZone, ParkingZone } from "@/types/parking";
+import type { ParkingSubZone, ParkingSummary, ParkingZone } from "@/types/parking";
 import {
   mapDetailApiToParkingSubZone,
   mapZoneApiToParkingZone,
@@ -34,6 +34,11 @@ export interface PublicCameraSummary {
   zoneId: string;
   timestamp: string | null;
   snapLink: string | null;
+}
+
+export interface PublicZoneSnapshot {
+  zoneId: string;
+  summary: ParkingSummary;
 }
 
 function debugLog(message: string, meta?: Record<string, unknown>) {
@@ -228,6 +233,56 @@ function mapPublicSlotToParkingSubZone(item: GenericObject, index: number): Park
   };
 }
 
+function mapPublicSummaryToParkingSummary(item: GenericObject): ParkingSummary {
+  const total = toNumber(pick<number | string>(item, ["total", "capacity", "slotsTotal"]));
+  const occupied = toNumber(
+    pick<number | string>(item, ["occupied", "occupiedCount", "used", "filled"]),
+  );
+  const freeRaw = pick<number | string>(item, ["free", "available", "freeCount", "empty"]);
+  const free = freeRaw !== undefined ? toNumber(freeRaw) : Math.max(total - occupied, 0);
+
+  const carOccupied = toNumber(
+    pick<number | string>(item, ["car-occ", "carOccupied", "car_occupied", "carOcc"]),
+  );
+  const carFree = toNumber(
+    pick<number | string>(item, ["car-free", "carFree", "car_free", "carFreeCount"]),
+  );
+  const motorcycleOccupied = toNumber(
+    pick<number | string>(item, ["mt-occ", "mt_occ", "motorcycleOccupied", "motorcycle_occupied"]),
+  );
+  const motorcycleFree = toNumber(
+    pick<number | string>(item, ["mt-free", "mt_free", "motorcycleFree", "motorcycle_free"]),
+  );
+
+  const hasVehicleBreakdown =
+    carOccupied + carFree + motorcycleOccupied + motorcycleFree > 0;
+
+  return {
+    total,
+    occupied,
+    free,
+    skipped: toNumber(pick<number | string>(item, ["skipped"])),
+    car: hasVehicleBreakdown
+      ? {
+          occupied: carOccupied,
+          free: carFree,
+        }
+      : {
+          occupied,
+          free,
+        },
+    motorcycle: hasVehicleBreakdown
+      ? {
+          occupied: motorcycleOccupied,
+          free: motorcycleFree,
+        }
+      : {
+          occupied: 0,
+          free: 0,
+        },
+  };
+}
+
 async function fetchJson(url: string): Promise<unknown> {
   const response = await fetch(url, {
     cache: "no-store",
@@ -304,9 +359,46 @@ export async function getPublicZonesOrFallback(
   }
 }
 
-export async function getC5CameraSummary(): Promise<PublicCameraSummary | null> {
+export async function getPublicZoneSummary(
+  zoneId: string,
+): Promise<PublicZoneSnapshot | null> {
   try {
-    const url = `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(C5_CAMERA_ID)}`;
+    const normalizedZoneId = zoneId.toUpperCase();
+    const url = `${PUBLIC_API_BASE}/zones/${encodeURIComponent(normalizedZoneId)}/summary`;
+    const raw = await fetchJson(url);
+    const payload = asObject(unwrapPayload(raw));
+    const nestedSummary = asObject(
+      pick<unknown>(payload, ["summary", "zoneSummary", "result"]),
+    );
+    const effective = Object.keys(nestedSummary).length > 0 ? nestedSummary : payload;
+
+    const summary = mapPublicSummaryToParkingSummary(effective);
+
+    debugLog("Loaded public zone summary", {
+      url,
+      zoneId: normalizedZoneId,
+      total: summary.total,
+      occupied: summary.occupied,
+      free: summary.free,
+    });
+
+    return {
+      zoneId:
+        toNullableString(pick<string>(effective, ["zone", "zoneId", "zone_id", "zoneCode"]))
+          ?.toUpperCase() ?? normalizedZoneId,
+      summary,
+    };
+  } catch {
+    debugLog("Failed to load public zone summary", { zoneId });
+    return null;
+  }
+}
+
+export async function getPublicCameraSummary(
+  cameraId: string,
+): Promise<PublicCameraSummary | null> {
+  try {
+    const url = `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(cameraId)}`;
     const raw = await fetchJson(url);
     const payload = asObject(unwrapPayload(raw));
     const nestedCamera = asObject(pick<unknown>(payload, ["camera", "result", "latestResult"]));
@@ -324,29 +416,33 @@ export async function getC5CameraSummary(): Promise<PublicCameraSummary | null> 
       ),
     };
 
-    debugLog("Loaded C5 camera summary", {
+    debugLog("Loaded public camera summary", {
       url,
+      cameraId,
+      zoneId: summary.zoneId,
       hasTimestamp: summary.timestamp !== null,
       hasSnapshot: summary.snapLink !== null,
-      zoneId: summary.zoneId,
     });
 
     return summary;
   } catch {
-    debugLog("Failed to load C5 camera summary");
+    debugLog("Failed to load public camera summary", { cameraId });
     return null;
   }
 }
 
-export async function getC5CameraSlots(): Promise<ParkingSubZone[] | null> {
+export async function getPublicCameraSlots(
+  cameraId: string,
+): Promise<ParkingSubZone[] | null> {
   try {
-    const url = `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(C5_CAMERA_ID)}/slots`;
+    const url = `${PUBLIC_API_BASE}/cameras/${encodeURIComponent(cameraId)}/slots`;
     const payload = await fetchJson(url);
     const list = extractList(unwrapPayload(payload));
     const slots = list.map((item, index) => mapPublicSlotToParkingSubZone(item, index));
 
-    debugLog("Loaded C5 camera slots", {
+    debugLog("Loaded public camera slots", {
       url,
+      cameraId,
       rawCount: list.length,
       mappedCount: slots.length,
       occupiedCount: slots.filter((slot) => slot.occupied > 0).length,
@@ -354,7 +450,15 @@ export async function getC5CameraSlots(): Promise<ParkingSubZone[] | null> {
 
     return slots;
   } catch {
-    debugLog("Failed to load C5 camera slots");
+    debugLog("Failed to load public camera slots", { cameraId });
     return null;
   }
+}
+
+export async function getC5CameraSummary(): Promise<PublicCameraSummary | null> {
+  return getPublicCameraSummary(C5_CAMERA_ID);
+}
+
+export async function getC5CameraSlots(): Promise<ParkingSubZone[] | null> {
+  return getPublicCameraSlots(C5_CAMERA_ID);
 }
