@@ -1,6 +1,6 @@
 import { transaction } from "./transaction";
 import type { Booking, BookingEvent, BookingPolicy, BookingRequest, BookingService, UserRole } from "./contracts";
-import { demoAccounts, mockParkingService, readDemo, writeDemo, type DemoState } from "./mock";
+import { getMockUser, mockParkingService, readDemo, writeDemo, type DemoState } from "./mock";
 
 /** Illustrative rules only; replace with university-approved server policies later. */
 export const demoBookingPolicies: Record<UserRole, BookingPolicy> = {
@@ -33,7 +33,7 @@ function interval(request: Pick<BookingRequest, "startsAt" | "durationMinutes">,
   return { start, end: start + request.durationMinutes * 60_000 };
 }
 function session(state: DemoState, userId: string) {
-  const user = demoAccounts.find(account => account.id === state.accountId && account.id === userId);
+  const user = state.accountId === userId ? getMockUser(state, userId) : undefined;
   if (!user) throw new Error("บัญชีเปลี่ยนหรือยังไม่ได้เข้าสู่ระบบ กรุณาเลือกบัญชีแล้วลองใหม่");
   return user;
 }

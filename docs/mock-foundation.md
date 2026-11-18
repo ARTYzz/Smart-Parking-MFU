@@ -1,6 +1,6 @@
 # Mock parking and booking
 
-The default app uses demonstration parking data and accounts only. No REG or camera connection is required. Existing `.env.local` endpoints do not opt into live mode.
+The app uses demonstration parking data with real Google university login. See [Google login setup](google-login.md). No REG or camera connection is required. Existing `.env.local` endpoints do not opt into live mode.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ The default app uses demonstration parking data and accounts only. No REG or cam
 - `lib/services/catalog.ts`: canonical zone IDs and illustrative capacities/positions.
 - `lib/services/mock.ts`: physical occupancy, individual slots, session and versioned browser state (`mfu-parking-demo-v1`). Earlier state is migrated to an empty booking ledger without dropping the account/scenario. Storage failure falls back to memory; persistence across reload then cannot be guaranteed.
 - `lib/services/booking.ts`: mock policy validation, slot assignment, interval conflicts, cancellation, expiry reconciliation and per-user events. The clock is injectable for deterministic expiry tests.
-- `lib/services/index.ts`: independent parking/auth adapters. Booking is available only when both are mock; real modes intentionally do not create local reservations.
+- `lib/services/index.ts`: independent parking/auth adapters. Booking is available when parking data is mock; Google sessions are bound to the mock ledger. Live parking mode does not create local reservations.
 - `AppProvider`: shared data, one-second booking/countdown refresh, focus refresh and cross-tab storage synchronization.
 
 ## Demonstration policy (not university policy)
@@ -40,19 +40,19 @@ Implement BookingService against server endpoints with an authoritative clock, a
 
 Set `NEXT_PUBLIC_PARKING_MODE=api` and configure the public zones base/details endpoint to use the existing mappers; reconcile those with the professor's final contract. Browser requests require CORS support or a same-origin server adapter. Never place credentials in NEXT_PUBLIC variables. API failures never silently fall back to mock data.
 
-`NEXT_PUBLIC_AUTH_MODE=reg` disables mock login and shows REG unavailable until a server-verified university session adapter is implemented. Restart/rebuild when changing NEXT_PUBLIC settings.
+Authentication always uses server-verified Google university sessions. There is no NEXT_PUBLIC_AUTH_MODE bypass. Restart/rebuild when changing environment settings.
 
 ## Verification
 
 `npm test` exercises inventory conservation, policies, interval boundaries, quota, ownership, account isolation, reload, reset, expiry, full/no-data states and concurrent submissions. `npm run lint` and `npm run build` check the app.
 
-Manual flow: select a demo account → `/find-spot` → choose vehicle/zone/start/duration → confirm → `/my-booking` → cancel or let expire → `/history`. Compare the physical and bookable counts on Dashboard and zone details before/after. Repeat with a future start and another account. Test invalid past dates, duration above policy, overlapping bookings and a full zone.
+Manual flow: sign in with a configured university Google account → `/find-spot` → choose vehicle/zone/start/duration → confirm → `/my-booking` → cancel or let expire → `/history`. Compare the physical and bookable counts on Dashboard and zone details before/after. Repeat with a future start and another account. Test invalid past dates, duration above policy, overlapping bookings and a full zone.
 
 Schedule integration, credit scoring, analytics, prediction and PWA remain future iterations. Booking history is not evidence that a vehicle actually entered a parking space.
 
 ## In-app notifications
 
-`NotificationService` (`lib/services/notifications.ts`) generates persisted per-user messages from booking events, the final five minutes of an active reservation, and followed-zone transitions. `/notifications` provides unread/all filters, mark-read/mark-all, and zone following. The header bell shows the signed-in account's unread count. These APIs are disabled alongside mock booking in real-data/REG modes until a real notification adapter is implemented.
+`NotificationService` (`lib/services/notifications.ts`) generates persisted per-user messages from booking events, the final five minutes of an active reservation, and followed-zone transitions. `/notifications` provides unread/all filters, mark-read/mark-all, and zone following. The header bell shows the signed-in account's unread count. These APIs are disabled alongside mock booking in real-data mode until a real notification adapter is implemented.
 
 Booking-event IDs and one stable reminder ID per booking deduplicate repeated polling and reload. A five-minute booking can immediately generate its ending reminder at its start. Future bookings never trigger early; reopening after expiry produces the expiry message without a stale five-minute reminder. Read status and followed zones survive reload and are included in demo reset. Existing booking events are migrated into messages on first opening the new version.
 
@@ -66,3 +66,4 @@ Notifications are in-app only: no browser permission, push, email, or external a
 The top-right avatar opens a modal right-side account drawer with personal navigation, demo account switching and sign-out. Native dialog focus containment, Escape dismissal, backdrop dismissal and focus return are supported. Personal account actions have moved out of the demo banner.
 
 The adjacent icon-only bell opens an in-page dropdown with the latest six messages, individual/all read actions, empty/error/guest states and optional links to details or the full notification center. Clicking the bell does not navigate; Escape and outside clicks dismiss the dropdown. Profile and notification panels are mutually exclusive.
+

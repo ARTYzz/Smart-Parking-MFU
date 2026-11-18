@@ -11,22 +11,23 @@ export const demoAccounts: AppUser[] = [
 ];
 export const demoStorageKey = "mfu-parking-demo-v1";
 type Scenario = "normal" | "full" | "no-data";
-export type DemoState = { accountId: string | null; scenario: Scenario; updatedAt: string; bookings: Booking[]; events: BookingEvent[]; notifications: AppNotification[]; watches: ZoneWatch[] };
-let memory: DemoState = { accountId: null, scenario: "normal", updatedAt: "2026-09-09T08:00:00+07:00", bookings: [], events: [], notifications: [], watches: [] };
+export type DemoState = { accountId: string | null; scenario: Scenario; updatedAt: string; bookings: Booking[]; events: BookingEvent[]; notifications: AppNotification[]; watches: ZoneWatch[]; users: AppUser[] };
+let memory: DemoState = { accountId: null, scenario: "normal", updatedAt: "2026-09-09T08:00:00+07:00", bookings: [], events: [], notifications: [], watches: [], users: [] };
 
 export function readDemo(): DemoState {
   if (typeof window === "undefined") return memory;
   try {
     const raw = JSON.parse(localStorage.getItem(demoStorageKey) ?? "null");
     if (raw && ["normal", "full", "no-data"].includes(raw.scenario) &&
-      (raw.accountId === null || demoAccounts.some(a => a.id === raw.accountId)) &&
+      (raw.accountId === null || typeof raw.accountId === "string") &&
       typeof raw.updatedAt === "string" && Number.isFinite(Date.parse(raw.updatedAt))) {
       // Migrate the first mock-foundation storage format without dropping the selected account.
       const bookings = Array.isArray(raw.bookings) ? raw.bookings.filter(validBooking) : [];
       const events = Array.isArray(raw.events) ? raw.events.filter(validEvent) : [];
       const notifications = Array.isArray(raw.notifications) ? raw.notifications.filter(validNotification) : [];
       const watches = Array.isArray(raw.watches) ? raw.watches.filter(validWatch) : [];
-      memory = { accountId: raw.accountId, scenario: raw.scenario, updatedAt: raw.updatedAt, bookings, events, notifications, watches };
+      const users = Array.isArray(raw.users) ? raw.users.filter((u: AppUser) => u && typeof u.id === "string" && u.id.startsWith("google:") && typeof u.name === "string" && u.role === "student") : [];
+      memory = { accountId: raw.accountId, scenario: raw.scenario, updatedAt: raw.updatedAt, bookings, events, notifications, watches, users };
     }
   } catch { /* Storage unavailable or corrupt: keep a usable in-memory demo. */ }
   return memory;
@@ -56,7 +57,7 @@ function validNotification(value: unknown): value is AppNotification {
 function validWatch(value: unknown): value is ZoneWatch {
   if (!value || typeof value !== "object") return false;
   const w = value as ZoneWatch;
-  return demoAccounts.some(a => a.id === w.userId) && zoneCatalog.some(z => z.id === w.zoneId) &&
+  return typeof w.userId === "string" && zoneCatalog.some(z => z.id === w.zoneId) &&
     [null, "available", "nearly-full", "full"].includes(w.lastStatus);
 }
 export function writeDemo(state: DemoState) {
@@ -67,7 +68,17 @@ export function setDemoScenario(scenario: Scenario) {
   writeDemo({ ...readDemo(), scenario, updatedAt: new Date().toISOString() });
 }
 export function resetDemo() {
-  writeDemo({ accountId: null, scenario: "normal", updatedAt: new Date().toISOString(), bookings: [], events: [], notifications: [], watches: [] });
+  writeDemo({ accountId: null, scenario: "normal", updatedAt: new Date().toISOString(), bookings: [], events: [], notifications: [], watches: [], users: [] });
+}
+export function getMockUser(state: DemoState, id: string) { return [...demoAccounts, ...state.users].find(user => user.id === id); }
+/** Binds simulated parking records to a server-verified identity; this is not authentication. */
+export function bindMockUser(user: AppUser | null) {
+  const state = readDemo();
+  const existing = user ? state.users.find(u => u.id === user.id) : null;
+  if (state.accountId === (user?.id ?? null) && (!user || JSON.stringify(existing) === JSON.stringify(user))) return;
+  if (user) state.users = [...state.users.filter(u => u.id !== user.id), user];
+  state.accountId = user?.id ?? null;
+  writeDemo(state);
 }
 export const mockParkingService: ParkingService = {
   async listZones() {

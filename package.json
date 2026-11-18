@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/mock-services.test.mjs"
+    "test": "node --test tests/mock-services.test.mjs tests/auth.test.mjs"
   },
   "dependencies": {
+    "jose": "^6.2.17",
     "lucide-react": "^1.7.0",
     "next": "16.2.0",
     "react": "^19.2.4",

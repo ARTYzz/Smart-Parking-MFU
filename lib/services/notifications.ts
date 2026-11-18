@@ -1,13 +1,13 @@
 import type { AppNotification, BookingService, NotificationService } from "./contracts";
 import { createMockBookingService } from "./booking";
-import { readDemo, writeDemo, mockParkingService, demoAccounts } from "./mock";
+import { readDemo, writeDemo, mockParkingService, getMockUser } from "./mock";
 import { transaction } from "./transaction";
 import { getParkingStatus } from "@/lib/occupancy";
 import { zoneCatalog } from "./catalog";
 
 function requireSession(userId: string) {
   const state = readDemo();
-  if (state.accountId !== userId || !demoAccounts.some(a => a.id === userId)) throw new Error("บัญชีเปลี่ยนหรือยังไม่ได้เข้าสู่ระบบ กรุณาเลือกบัญชีแล้วลองใหม่");
+  if (state.accountId !== userId || !getMockUser(state, userId)) throw new Error("บัญชีเปลี่ยนหรือยังไม่ได้เข้าสู่ระบบ กรุณาเลือกบัญชีแล้วลองใหม่");
   return state;
 }
 export function createMockNotificationService(clock: () => number = Date.now, booking: BookingService = createMockBookingService(clock)): NotificationService {

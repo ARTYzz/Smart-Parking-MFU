@@ -18,7 +18,7 @@ export function DemoControls() {
         <button className="rounded border px-3 py-1" onClick={() => void act(() => setDemoScenario("full"))}>จำลองทุกโซนเต็ม</button>
         <button className="rounded border px-3 py-1" onClick={() => void act(() => setDemoScenario("no-data"))}>จำลองไม่มีข้อมูล</button>
         <button className="rounded border px-3 py-1" onClick={() => void act(() => setDemoScenario("normal"))}>สถานะปกติ</button>
-        <button className="underline" onClick={() => void act(resetDemo)}>รีเซ็ตเดโม (ล้างบัญชี การจอง ประวัติ และแจ้งเตือน)</button>
+        <button className="underline" onClick={() => void act(resetDemo)}>รีเซ็ตเดโม (ล้างการจอง ประวัติ และแจ้งเตือน)</button>
       </>}
       {loading && <span role="status">กำลังโหลด…</span>}
       {(error || message) && <p role="alert">{error || message} <button className="underline" onClick={() => void refresh()}>ลองใหม่</button></p>}

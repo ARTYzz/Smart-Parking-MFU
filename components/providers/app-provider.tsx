@@ -26,10 +26,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     catch { setNotificationSnapshot({ userId: null, notifications: [], followedZoneIds: [] }); setNotificationError("โหลดการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่"); }
   }, []);
   const refresh = useCallback(async () => {
-    const [parking, session, booking] = await Promise.allSettled([parkingService.listZones(), authService.getSession(), bookingService.getSnapshot()]);
+    let session: AppUser | null;
+    try { session = await authService.getSession(); }
+    catch { setUser(null); setError("ตรวจสอบบัญชีไม่สำเร็จ กรุณาลองใหม่"); setLoading(false); return; }
+    setUser(session);
+    if (!session) {
+      setZones([]); setBookingSnapshot({ bookings: [], events: [], availability: [] });
+      setNotificationSnapshot({ userId: null, notifications: [], followedZoneIds: [] });
+      setError(""); setLoading(false); return;
+    }
+    const [parking, booking] = await Promise.allSettled([parkingService.listZones(), bookingService.getSnapshot()]);
     setZones(parking.status === "fulfilled" ? parking.value : []);
-    setUser(session.status === "fulfilled" ? session.value : null);
-    setError(parking.status === "rejected" ? "โหลดข้อมูลที่จอดไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่" : session.status === "rejected" ? "โหลดบัญชีไม่สำเร็จ" : "");
+    setError(parking.status === "rejected" ? "โหลดข้อมูลที่จอดไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่" : "");
     setLoading(false);
     setNow(Date.now());
     setBookingSnapshot(booking.status === "fulfilled" ? booking.value : { bookings: [], events: [], availability: [] });
@@ -42,9 +50,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void refresh();
     const sync = (event: StorageEvent) => { if (event.key === demoStorageKey || event.key === null) void refresh(); };
     window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    const focus = () => void refresh();
+    window.addEventListener("focus", focus);
+    const sessionTimer = setInterval(focus, 60_000);
+    return () => { window.removeEventListener("storage", sync); window.removeEventListener("focus", focus); clearInterval(sessionTimer); };
   }, [refresh]);
   useEffect(() => {
+    if (!user) return;
     let active = true;
     const tick = async () => {
       setNow(Date.now());
@@ -57,7 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const timer = setInterval(() => void tick(), 1000);
     window.addEventListener("focus", tick);
     return () => { active = false; clearInterval(timer); window.removeEventListener("focus", tick); };
-  }, [refreshNotifications]);
+  }, [refreshNotifications, user]);
   async function signIn(id?: string) { await authService.signIn(id); await refresh(); }
   async function signOut() { await authService.signOut(); await refresh(); }
   return <AppContext.Provider value={{ zones, user, loading, error, refresh, signIn, signOut, bookingSnapshot, bookingError, now, notificationSnapshot, notificationError, refreshNotifications }}>{children}</AppContext.Provider>;

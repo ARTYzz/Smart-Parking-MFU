@@ -1,7 +1,7 @@
 import type { ParkingSubZone, ParkingZone, VehicleType } from "@/types/parking";
 
 export type UserRole = "student" | "staff" | "lecturer" | "admin";
-export interface AppUser { id: string; name: string; role: UserRole }
+export interface AppUser { id: string; name: string; role: UserRole; email?: string }
 export interface ParkingService {
   listZones(): Promise<ParkingZone[]>;
   getDetails(zoneId: string): Promise<ParkingSubZone[]>;

@@ -78,6 +78,19 @@ function bookingHarness() {
 }
 const request = (extra = {}) => ({ userId: 'demo-student', zoneId: 'E1', vehicleType: 'car', startsAt: null, durationMinutes: 15, ...extra });
 
+test('Google identity can use mock bookings and notifications across reload', async () => {
+  const h = bookingHarness();
+  const user = { id: 'google:123', name: 'Student', email: 'student@lamduan.mfu.ac.th', role: 'student' };
+  h.service.bindMockUser(user);
+  await h.booking.create(request({ userId: user.id }));
+  assert.equal((await h.notifications.getSnapshot()).notifications.length, 1);
+  const reloaded = harness(false, h.storage);
+  const booking = reloaded.bookingModule.createMockBookingService(() => baseTime);
+  assert.equal((await booking.getSnapshot()).bookings[0].userId, user.id);
+  reloaded.service.bindMockUser(null);
+  await assert.rejects(() => booking.create(request({ userId: user.id })));
+});
+
 test('current booking changes bookable count but never physical occupancy; cancel restores inventory', async () => {
   const h = bookingHarness();
   await h.service.mockAuthService.signIn('demo-student');

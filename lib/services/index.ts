@@ -2,23 +2,34 @@ import { getParkingZoneDetails, getPublicZones } from "@/lib/api";
 import type { AuthService, BookingService, ParkingService, NotificationService } from "./contracts";
 import { mockNotificationService } from "./notifications";
 import { mockBookingService, demoBookingPolicies } from "./booking";
-import { mockAuthService, mockParkingService } from "./mock";
+import { bindMockUser, mockParkingService } from "./mock";
 
 export const parkingMode = process.env.NEXT_PUBLIC_PARKING_MODE === "api" ? "api" : "mock";
-export const authMode = process.env.NEXT_PUBLIC_AUTH_MODE === "reg" ? "reg" : "mock";
+export const authMode = "google";
 // Real data failures remain visible; never silently substitute demo data in API mode.
 const apiParkingService: ParkingService = {
   listZones: getPublicZones,
   getDetails: getParkingZoneDetails,
 };
-const regAuthService: AuthService = {
-  async getSession() { return null; },
-  async signIn() { throw new Error("ยังไม่ได้เชื่อมระบบ REG ของมหาวิทยาลัย"); },
-  async signOut() { throw new Error("ยังไม่ได้เชื่อมระบบ REG ของมหาวิทยาลัย"); },
+const googleAuthService: AuthService = {
+  async getSession() {
+    const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+    if (!response.ok) throw new Error("ตรวจสอบบัญชีไม่สำเร็จ");
+    const { user } = await response.json();
+    bindMockUser(user);
+    return user;
+  },
+  async signIn() { window.location.assign("/api/auth/google"); return null; },
+  async signOut() {
+    const response = await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    if (!response.ok) throw new Error("ออกจากระบบไม่สำเร็จ");
+    bindMockUser(null);
+    window.location.replace("/login");
+  },
 };
 export const parkingService = parkingMode === "mock" ? mockParkingService : apiParkingService;
-export const authService = authMode === "mock" ? mockAuthService : regAuthService;
-export const bookingEnabled = parkingMode === "mock" && authMode === "mock";
+export const authService = googleAuthService;
+export const bookingEnabled = parkingMode === "mock";
 const unavailableBookingService: BookingService = {
   getPolicy: role => ({ ...demoBookingPolicies[role] }),
   async getSnapshot() { return { bookings: [], events: [], availability: [] }; },

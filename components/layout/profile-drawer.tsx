@@ -2,14 +2,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { CalendarCheck, Car, Check, History, LogOut, UserRound, X } from "lucide-react";
+import { CalendarCheck, Car, History, LogOut, UserRound, X } from "lucide-react";
 import { useApp } from "@/components/providers/app-provider";
-import { authMode } from "@/lib/services";
-import { demoAccounts } from "@/lib/services/mock";
+
+
 
 const roleLabels = { student: "นักศึกษา", staff: "บุคลากร", lecturer: "อาจารย์", admin: "ผู้ดูแลระบบ" };
 export function ProfileDrawer({ onClose, returnFocus }: { onClose: () => void; returnFocus: RefObject<HTMLButtonElement | null> }) {
-  const { user, signIn, signOut, loading } = useApp();
+  const { user, signOut } = useApp();
   const dialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -21,12 +21,6 @@ export function ProfileDrawer({ onClose, returnFocus }: { onClose: () => void; r
     document.body.style.overflow = "hidden";
     return () => { element?.close(); document.body.style.overflow = previousOverflow; if (returnTarget?.isConnected) returnTarget.focus(); };
   }, [returnFocus]);
-  async function select(id: string) {
-    setBusy(true); setMessage("");
-    try { await signIn(id); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "สลับบัญชีไม่สำเร็จ"); }
-    finally { setBusy(false); }
-  }
   async function logout() {
     setBusy(true); setMessage("");
     try { await signOut(); onClose(); }
@@ -43,12 +37,11 @@ export function ProfileDrawer({ onClose, returnFocus }: { onClose: () => void; r
           { href: "/my-vehicle", label: "ยานพาหนะของฉัน", Icon: Car },
           { href: "/history", label: "ประวัติการใช้งาน", Icon: History },
         ].map(({ href, label, Icon }) => <Link key={href} href={href} onClick={onClose} className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 font-medium hover:bg-[#FED488]/40"><Icon className="h-5 w-5 text-[#7D000F]" />{label}</Link>)}</nav>
-        <section className="mt-8"><h3 className="font-bold">{user ? "สลับบัญชีสาธิต" : "เลือกบัญชีสาธิต"}</h3><p className="mt-2 text-xs text-[#59413F]">บัญชีสมมติสำหรับทดสอบ ไม่ใช้บัญชีมหาวิทยาลัย</p>
-          {authMode !== "mock" ? <p className="mt-4 text-sm">ระบบ REG ยังไม่พร้อมใช้งาน</p> : <div className="mt-4 space-y-2">{demoAccounts.map(account => <button key={account.id} disabled={busy || loading} aria-pressed={user?.id === account.id} onClick={() => void select(account.id)} className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left disabled:opacity-50 ${user?.id === account.id ? "border-[#7D000F]/30 bg-[#7D000F]/5" : "border-transparent bg-white hover:border-[#7D000F]/20"}`}><span><span className="block text-sm font-semibold">{account.name}</span><span className="text-xs text-[#59413F]">{roleLabels[account.role]}</span></span>{user?.id === account.id && <Check className="h-5 w-5 text-[#7D000F]" />}</button>)}</div>}
-        </section>
+        <section className="mt-8 rounded-xl bg-white p-4"><h3 className="font-bold">บัญชี Google มหาวิทยาลัย</h3><p className="mt-2 break-all text-sm text-[#59413F]">{user?.email}</p><p className="mt-3 text-xs text-[#59413F]">หากต้องการเปลี่ยนบัญชี ให้ออกจากระบบแล้วเข้าสู่ระบบด้วย Google อีกครั้ง</p></section>
         {message && <p role="alert" className="mt-4 text-sm text-red-800">{message}</p>}
       </div>
       {user && <div className="border-t border-black/5 p-6"><button disabled={busy} onClick={() => void logout()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#7D000F]/20 px-4 py-3 font-semibold text-[#7D000F] disabled:opacity-50"><LogOut className="h-5 w-5" />ออกจากระบบ</button></div>}
     </aside>
   </dialog>, document.body);
 }
+
