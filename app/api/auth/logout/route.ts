@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authConfig, cookieOptions, SESSION_COOKIE, FLOW_COOKIE } from "@/lib/auth/server";
+import { requestAuth } from "@/lib/auth/server";
 export async function POST(request: NextRequest) {
-  let origin = request.nextUrl.origin;
-  try { origin = authConfig().origin; } catch { /* Can clear a stale session during configuration changes. */ }
-  if (request.headers.get("origin") !== origin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
-  for (const name of [SESSION_COOKIE, FLOW_COOKIE]) response.cookies.set(name, "", cookieOptions(new URL(origin).protocol === "https:", 0));
-  return response;
+  if (request.headers.get("origin") !== request.nextUrl.origin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  try {
+    const auth = requestAuth(request);
+    const { error } = await auth.supabase.auth.signOut({ scope: "local" });
+    return auth.finish(NextResponse.json(error ? { error: "Logout failed" } : { ok: true }, { status: error ? 503 : 200 }));
+  } catch {
+    return NextResponse.json({ error: "Logout failed" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
 }

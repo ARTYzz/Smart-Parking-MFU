@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/providers/language-provider";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -11,6 +12,7 @@ import { parkingMode } from "@/lib/services";
 import { getParkingStatus } from "@/lib/occupancy";
 
 export default function HomePage() {
+  const { t } = useLanguage();
   const { zones, loading, error, refresh, user, bookingSnapshot } = useApp();
   const summary = buildParkingSummary(zones);
   const mapZones: ZoneStatus[] = zones.map(zone => {
@@ -24,26 +26,26 @@ export default function HomePage() {
   }); });
   return <main className="min-h-screen"><AppHeader /><PageContainer>
     <section className="section-surface rounded-3xl p-6 md:p-8">
-      <p className="label-caps text-sm text-[#7D000F]">Smart Parking Dashboard</p>
-      <h2 className="display-font mt-2 text-4xl font-extrabold">เลือกที่จอด ก่อนออกเดินทาง</h2>
-      <p className="mt-3 text-[#59413F]">{user ? `สวัสดี ${user.name}` : "สำรวจที่จอดรถในมหาวิทยาลัย"} • {parkingMode === "mock" ? "ข้อมูลทั้งหมดเป็นสถานการณ์จำลอง" : "ข้อมูลล่าสุดที่ดึงจากระบบ"}</p>
+      <p className="label-caps text-sm text-[#7D000F]">{t("Smart Parking Dashboard")}</p>
+      <h2 className="display-font mt-2 text-4xl font-extrabold">{t("เลือกที่จอด ก่อนออกเดินทาง")}</h2>
+      <p className="mt-3 text-[#59413F]">{t(user ? `สวัสดี ${user.name}` : "สำรวจที่จอดรถในมหาวิทยาลัย")}{t(" • ")}{t(parkingMode === "mock" ? "ข้อมูลทั้งหมดเป็นสถานการณ์จำลอง" : "ข้อมูลล่าสุดที่ดึงจากระบบ")}</p>
       <div className="mt-5 flex flex-wrap gap-3">
-        <Link href="/find-spot" className="primary-cta rounded-xl px-5 py-3 font-semibold">Book Now • จองที่จอดสาธิต</Link>
-        <Link href="/parking-zones" className="secondary-cta rounded-xl px-5 py-3 font-semibold">ดูทุกโซน</Link>
-        <button onClick={() => void refresh()} className="rounded-xl bg-white px-5 py-3">รีเฟรชข้อมูล</button>
+        <Link href="/find-spot" className="primary-cta rounded-xl px-5 py-3 font-semibold">{t("Book Now • จองที่จอดสาธิต")}</Link>
+        <Link href="/parking-zones" className="secondary-cta rounded-xl px-5 py-3 font-semibold">{t("ดูทุกโซน")}</Link>
+        <button onClick={() => void refresh()} className="rounded-xl bg-white px-5 py-3">{t("รีเฟรชข้อมูล")}</button>
       </div>
-      <p className="mt-4 text-sm">{loading ? "กำลังโหลดข้อมูล…" : error ? "ยังโหลดข้อมูลไม่สำเร็จ" : `มีข้อมูล ${zones.filter(z => z.hasData).length}/${zones.length} โซน`}</p>
+      <p className="mt-4 text-sm">{t(loading ? "กำลังโหลดข้อมูล…" : error ? "ยังโหลดข้อมูลไม่สำเร็จ" : `มีข้อมูล ${zones.filter(z => z.hasData).length}/${zones.length} โซน`)}</p>
     </section>
-    {!loading && !error && <div className="mt-6"><ZoneSummaryCard summary={summary} /></div>}
+    {t(!loading && !error && <div className="mt-6"><ZoneSummaryCard summary={summary} /></div>)}
     <section className="section-surface mt-6 rounded-3xl p-5 md:p-8">
-      <h2 className="display-font text-2xl font-bold">แผนที่มหาวิทยาลัย</h2>
-      <p className="my-3 text-sm text-[#59413F]">สีบนแผนที่อิงช่องพร้อมจองตอนนี้หลังหักการจอง • ตำแหน่งและความจุใช้สำหรับสาธิต</p>
+      <h2 className="display-font text-2xl font-bold">{t("แผนที่มหาวิทยาลัย")}</h2>
+      <p className="my-3 text-sm text-[#59413F]">{t("สำรวจอาคารและเลือกโซนจอดรถ • สีแสดงช่องพร้อมจองหลังหักการจอง • ผังวาดตามภาพอ้างอิงและข้อมูลจอดยังเป็นข้อมูลสาธิต")}</p>
       <CampusParkingMap zones={mapZones} />
     </section>
     <section className="mt-8">
-      <h2 className="mb-4 text-2xl font-bold">สถานะรายโซน</h2>
-      {!loading && !error && zones.length === 0 && <p>ยังไม่มีโซนจอดรถ</p>}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{zones.map(zone => <ZoneCard key={zone.id} zone={zone} />)}</div>
+      <h2 className="mb-4 text-2xl font-bold">{t("สถานะรายโซน")}</h2>
+      {t(!loading && !error && zones.length === 0 && <p>{t("ยังไม่มีโซนจอดรถ")}</p>)}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{t(zones.map(zone => <ZoneCard key={zone.id} zone={zone} />))}</div>
     </section>
   </PageContainer></main>;
 }

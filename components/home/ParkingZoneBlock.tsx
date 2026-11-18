@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/providers/language-provider";
 import React from "react";
 
 export type ZoneStatus = {
@@ -25,6 +26,7 @@ export default function ParkingZoneBlock({
   onClick?: (zoneId: string) => void;
   selected?: boolean;
 }) {
+  const { t } = useLanguage();
   const cls = statusBg(zone.status);
 
   return (
@@ -38,12 +40,12 @@ export default function ParkingZoneBlock({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cls} shadow-sm`} />
-          <span className="font-semibold text-sm">{zone.zoneId}</span>
+          <span className="font-semibold text-sm">{t(zone.zoneId)}</span>
         </div>
-        <div className="text-xs text-[#59413F]">{zone.availableSlots}/{zone.totalSlots}</div>
+        <div className="text-xs text-[#59413F]">{t(zone.availableSlots)}{t("/")}{t(zone.totalSlots)}</div>
       </div>
 
-      <div className="absolute left-3 bottom-3 text-xs text-[#7D000F]/80">{zone.status === 'no-data' ? 'No data' : zone.status.replace('_', ' ')}</div>
+      <div className="absolute left-3 bottom-3 text-xs text-[#7D000F]/80">{t(zone.status === 'no-data' ? 'No data' : zone.status.replace('_', ' '))}</div>
     </button>
   );
 }

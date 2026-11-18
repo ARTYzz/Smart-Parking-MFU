@@ -1,44 +1,46 @@
-import { createRemoteJWKSet, jwtVerify, SignJWT, type JWTPayload } from "jose";
-import type { AppUser } from "@/lib/services/contracts";
-import { allowedGoogleClaims, isUniversityEmail } from "./policy";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
+import { universityUser } from "./policy";
 
-export const SESSION_COOKIE = "mfu_session";
-export const FLOW_COOKIE = "mfu_google_flow";
 export function authConfig() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const secret = process.env.AUTH_SECRET;
-  const rawUrl = process.env.AUTH_URL;
-  if (!clientId || !clientSecret || !secret || secret.length < 32 || !rawUrl) throw new Error("Auth not configured");
-  const url = new URL(rawUrl);
-  if (url.username || url.password || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) throw new Error("Invalid auth origin");
-  return { clientId, clientSecret, origin: url.origin, redirectUri: `${url.origin}/api/auth/google/callback`, secure: url.protocol === "https:" };
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key || new URL(url).protocol !== "https:") throw new Error("Supabase not configured");
+  return { url, key };
 }
 export function isAuthConfigured() { try { authConfig(); return true; } catch { return false; } }
-function key() {
-  if (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 32) throw new Error("Missing auth secret");
-  return new TextEncoder().encode(process.env.AUTH_SECRET);
-}
-export async function signAuthToken(payload: JWTPayload, kind: "flow" | "session", seconds: number) {
-  return new SignJWT({ ...payload, kind }).setProtectedHeader({ alg: "HS256" }).setIssuer("mfu-smart-parking").setAudience(kind).setIssuedAt().setExpirationTime(`${seconds}s`).sign(key());
-}
-export async function verifyAuthToken(token: string, kind: "flow" | "session") {
-  const { payload } = await jwtVerify(token, key(), { algorithms: ["HS256"], issuer: "mfu-smart-parking", audience: kind });
-  if (payload.kind !== kind || typeof payload.exp !== "number") throw new Error("Invalid token");
-  return payload;
-}
-export async function sessionUser(token?: string): Promise<AppUser | null> {
-  if (!token) return null;
-  try {
-    const payload = await verifyAuthToken(token, "session");
-    if (typeof payload.sub !== "string" || !payload.sub.startsWith("google:") || !isUniversityEmail(payload.email) || payload.role !== "student" || typeof payload.name !== "string") return null;
-    return { id: payload.sub, email: payload.email, name: payload.name, role: "student" };
-  } catch { return null; }
-}
-export const cookieOptions = (secure: boolean, maxAge: number) => ({ httpOnly: true, secure, sameSite: "lax" as const, path: "/", maxAge });
-const googleKeys = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
-export async function verifyGoogleToken(token: string, clientId: string, nonce: string) {
-  const { payload } = await jwtVerify(token, googleKeys, { algorithms: ["RS256"], issuer: ["https://accounts.google.com", "accounts.google.com"], audience: clientId });
-  if (typeof payload.exp !== "number" || !allowedGoogleClaims(payload, nonce)) throw new Error("University account required");
-  return { id: `google:${payload.sub}`, email: payload.email as string, name: typeof payload.name === "string" ? payload.name : payload.email as string, role: "student" as const };
+
+/** One client per request; carry refreshed cookies onto every response, including redirects. */
+export function requestAuth(request: NextRequest) {
+  const config = authConfig();
+  const pending = new Map<string, { name: string; value: string; options: CookieOptions }>();
+  const supabase = createServerClient(config.url, config.key, {
+    cookieOptions: { httpOnly: true, sameSite: "lax", secure: request.nextUrl.protocol === "https:", path: "/" },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store", signal: AbortSignal.timeout(15000) }) },
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(values) {
+        for (const cookie of values) {
+          pending.set(cookie.name, cookie);
+          request.cookies.set(cookie.name, cookie.value);
+        }
+      },
+    },
+  });
+  function finish(response: NextResponse) {
+    for (const { name, value, options } of pending.values()) response.cookies.set(name, value, options);
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    return response;
+  }
+  async function user() {
+    // Validate with the Auth server; never trust getSession's stored user metadata.
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+    const claims = await supabase.auth.getClaims();
+    if (claims.error || !claims.data) return null;
+    return universityUser(data.user, claims.data.claims);
+  }
+  return { supabase, finish, user };
 }

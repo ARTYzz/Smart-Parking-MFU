@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/providers/language-provider";
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import ZoneMarker from "./ZoneMarker";
@@ -22,6 +23,7 @@ const zonePositions: Record<string, { x: number; y: number }> = {
 };
 
 export function MapOverview({ zones }: { zones: ZoneStatus[] }) {
+  const { t } = useLanguage();
   const [selected, setSelected] = useState<string | null>(null);
 
   const zoneLookup = useMemo(() => {
@@ -66,9 +68,9 @@ export function MapOverview({ zones }: { zones: ZoneStatus[] }) {
   return (
     <div>
       <div className="relative w-full overflow-hidden rounded-2xl aspect-[16/9]">
-        <Image src="/mfu-map.png" alt="MFU map" fill className="object-cover rounded-2xl" />
+        <Image src="/mfu-map.png" alt={t("MFU map")} fill className="object-cover rounded-2xl" />
 
-        {markers.map((m) => (
+        {t(markers.map((m) => (
           <ZoneMarker
             key={m.zoneId}
             id={m.zoneId}
@@ -80,21 +82,21 @@ export function MapOverview({ zones }: { zones: ZoneStatus[] }) {
             availableSlots={m.availableSlots}
             totalSlots={m.totalSlots}
           />
-        ))}
+        )))}
       </div>
 
       <div className="mt-4 flex items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="inline-block w-3 h-3 rounded-full bg-green-500" />
-          <span className="text-sm text-[#59413F]">Available</span>
+          <span className="text-sm text-[#59413F]">{t("Available")}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block w-3 h-3 rounded-full bg-yellow-500" />
-          <span className="text-sm text-[#59413F]">Nearly full</span>
+          <span className="text-sm text-[#59413F]">{t("Nearly full")}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block w-3 h-3 rounded-full bg-red-500" />
-          <span className="text-sm text-[#59413F]">Full</span>
+          <span className="text-sm text-[#59413F]">{t("Full")}</span>
         </div>
       </div>
 

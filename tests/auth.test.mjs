@@ -3,54 +3,72 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-import * as jose from 'jose';
+import { NextRequest, NextResponse } from 'next/server.js';
 
-const keys = await jose.generateKeyPair('RS256');
-const jwk = await jose.exportJWK(keys.publicKey);
-function harness(overrides = {}) {
-  const env = { AUTH_SECRET: 'test-only-secret-at-least-32-characters', AUTH_URL: 'http://localhost:3102', GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret', ...overrides };
-  function load(file) {
-    const mod = { exports: {} };
-    const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
-    const requireLocal = name => name === 'jose' ? { ...jose, createRemoteJWKSet: () => jose.createLocalJWKSet({ keys: [jwk] }) } : load('lib/auth/policy.ts');
-    vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env }, TextEncoder, URL })(requireLocal, mod, mod.exports);
-    return mod.exports;
-  }
-  return load('lib/auth/server.ts');
+function load(file, modules = {}, env = {}) {
+  const mod = { exports: {} };
+  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { process: { env }, URL, AbortSignal, fetch })(name => modules[name], mod, mod.exports);
+  return mod.exports;
 }
-const user = { sub: 'google:123', name: 'Student', email: 'student@lamduan.mfu.ac.th', role: 'student' };
+const policy = load('lib/auth/policy.ts');
+const identity = { provider: 'google', identity_data: { sub: 'google-sub', email: 'student@lamduan.mfu.ac.th', email_verified: true, full_name: 'Student' } };
+const user = { id: 'supabase-id', email: identity.identity_data.email, email_confirmed_at: '2026-11-18T00:00:00Z', app_metadata: { provider: 'google' }, identities: [identity], user_metadata: { role: 'admin' } };
+const claims = { sub: user.id, amr: [{ method: 'oauth' }] };
 
-test('sessions reject tampering, expiry, flow tokens and unauthorized identities', async () => {
-  const auth = harness();
-  const token = await auth.signAuthToken(user, 'session', 60);
-  assert.equal((await auth.sessionUser(token)).email, user.email);
-  assert.equal(await auth.sessionUser(token + 'broken'), null);
-  assert.equal(await auth.sessionUser(), null);
-  for (const [payload, kind, lifetime] of [[user, 'session', -1], [user, 'flow', 60], [{ ...user, email: 'student@gmail.com' }, 'session', 60], [{ ...user, role: 'admin' }, 'session', 60]]) {
-    assert.equal(await auth.sessionUser(await auth.signAuthToken(payload, kind, lifetime)), null);
-  }
+test('verified Google university identity maps to student and stable mock history key', () => {
+  const result = policy.universityUser(user, claims);
+  assert.equal(result.id, 'google:google-sub');
+  assert.equal(result.role, 'student');
+  assert.equal(result.email, user.email);
 });
 
-test('configuration fails closed without secrets or with insecure public origins', () => {
-  assert.equal(harness().isAuthConfigured(), true);
-  for (const env of [{ AUTH_SECRET: '' }, { GOOGLE_CLIENT_ID: '' }, { GOOGLE_CLIENT_SECRET: '' }, { AUTH_URL: 'http://example.com' }]) assert.equal(harness(env).isAuthConfigured(), false);
+test('reject personal/suffix emails, unverified identities, other providers and forged metadata', () => {
+  for (const change of [
+    { email: 'student@gmail.com' }, { email: 'student@lamduan.mfu.ac.th.evil.com' },
+    { email_confirmed_at: null }, { identities: [] },
+    { app_metadata: { provider: 'email' } },
+    { identities: [{ ...identity, provider: 'github' }] },
+    { identities: [identity, { provider: 'github' }] },
+    ...[{ email_verified: false }, { email_verified: 'true' }, { email: 'another@lamduan.mfu.ac.th' }, { sub: '' }].map(data => ({ identities: [{ ...identity, identity_data: { ...identity.identity_data, ...data } }] })),
+  ]) assert.equal(policy.universityUser({ ...user, ...change }, claims), null);
+  for (const invalid of [{ ...claims, sub: 'other' }, { ...claims, amr: [{ method: 'password' }] }, { sub: user.id }]) assert.equal(policy.universityUser(user, invalid), null);
 });
 
-test('Google tokens require valid signature, audience, issuer, nonce and verified university domain', async () => {
-  const auth = harness();
-  const claims = { sub: '123', email: user.email, email_verified: true, hd: 'lamduan.mfu.ac.th', nonce: 'expected', name: 'Student' };
-  async function token(extra = {}, signingKey = keys.privateKey) {
-    return new jose.SignJWT({ ...claims, ...extra }).setProtectedHeader({ alg: 'RS256' }).setIssuer('https://accounts.google.com').setAudience('test-client').setExpirationTime('5m').sign(signingKey);
-  }
-  assert.equal((await auth.verifyGoogleToken(await token(), 'test-client', 'expected')).id, 'google:123');
-  for (const extra of [{ email: 'student@gmail.com' }, { email: 'student@lamduan.mfu.ac.th.evil.com' }, { email_verified: false }, { email_verified: 'true' }, { hd: 'mfu.ac.th' }, { hd: undefined }, { nonce: 'other' }]) {
-    await assert.rejects(() => token(extra).then(value => auth.verifyGoogleToken(value, 'test-client', 'expected')));
-  }
-  await assert.rejects(() => token().then(value => auth.verifyGoogleToken(value, 'wrong-client', 'expected')));
-  const otherKeys = await jose.generateKeyPair('RS256');
-  await assert.rejects(() => token({}, otherKeys.privateKey).then(value => auth.verifyGoogleToken(value, 'test-client', 'expected')));
-  for (const [issuer, expiry] of [['https://evil.com', '5m'], ['https://accounts.google.com', '-1s']]) {
-    const value = await new jose.SignJWT(claims).setProtectedHeader({ alg: 'RS256' }).setIssuer(issuer).setAudience('test-client').setExpirationTime(expiry).sign(keys.privateKey);
-    await assert.rejects(() => auth.verifyGoogleToken(value, 'test-client', 'expected'));
-  }
+function serverHarness({ authError = null, claimsError = null } = {}, env = { NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-public-key' }) {
+  let options;
+  let claimCalls = 0;
+  const server = load('lib/auth/server.ts', {
+    './policy': policy, 'next/server': { NextRequest, NextResponse },
+    '@supabase/ssr': { createServerClient(_url, _key, supplied) {
+      options = supplied;
+      return { auth: {
+        async getUser() {
+          options.cookies.setAll([{ name: 'sb-test-auth-token', value: 'refreshed', options: { httpOnly: true, path: '/' } }]);
+          return { data: { user: authError ? null : user }, error: authError };
+        },
+        async getClaims() { claimCalls++; return { data: { claims }, error: claimsError }; },
+      } };
+    } },
+  }, env);
+  return { server, calls: () => claimCalls };
+}
+test('server-verified user and refresh cookies survive redirects with no-cache headers', async () => {
+  const { server } = serverHarness();
+  const request = new NextRequest('https://parking.example/my-booking');
+  const auth = server.requestAuth(request);
+  assert.equal((await auth.user()).id, 'google:google-sub');
+  assert.equal(request.cookies.get('sb-test-auth-token').value, 'refreshed');
+  const response = auth.finish(NextResponse.redirect('https://parking.example/'));
+  assert.equal(response.cookies.get('sb-test-auth-token').value, 'refreshed');
+  assert.match(response.headers.get('cache-control'), /no-store/);
+});
+test('Auth errors fail closed; missing configuration does not enable login', async () => {
+  const denied = serverHarness({ authError: new Error('invalid token') });
+  assert.equal(await denied.server.requestAuth(new NextRequest('https://parking.example')).user(), null);
+  assert.equal(denied.calls(), 0);
+  const badClaims = serverHarness({ claimsError: new Error('bad signature') });
+  assert.equal(await badClaims.server.requestAuth(new NextRequest('https://parking.example')).user(), null);
+  assert.equal(serverHarness({}, {}).server.isAuthConfigured(), false);
+  assert.equal(serverHarness().server.isAuthConfigured(), true);
 });

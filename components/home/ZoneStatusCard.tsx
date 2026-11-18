@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/providers/language-provider";
 import React from "react";
 import Link from "next/link";
 
@@ -21,6 +22,7 @@ function statusBadge(status: ZoneStatus["status"]) {
 }
 
 export default function ZoneStatusCard({ zone }: { zone: ZoneStatus | null }) {
+  const { t } = useLanguage();
   if (!zone) return null;
   const badge = statusBadge(zone.status);
 
@@ -28,32 +30,30 @@ export default function ZoneStatusCard({ zone }: { zone: ZoneStatus | null }) {
     <div className="mt-4 rounded-2xl bg-white/90 p-4 shadow-md">
       <div className="flex items-start justify-between">
         <div>
-          <h4 className="display-font text-lg font-extrabold">โซน {zone.zoneId}</h4>
-          <p className="mt-1 text-sm text-[#59413F]">Updated: {zone.updatedAt ?? "-"}</p>
+          <h4 className="display-font text-lg font-extrabold">{t("โซน ")}{t(zone.zoneId)}</h4>
+          <p className="mt-1 text-sm text-[#59413F]">{t("Updated: ")}{t(zone.updatedAt ?? "-")}</p>
         </div>
-        <div className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.cls}`}>{badge.text}</div>
+        <div className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.cls}`}>{t(badge.text)}</div>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-3">
         <div className="rounded-xl bg-[#F3F4F5] p-3 text-center">
-          <p className="text-xs text-[#59413F]">ว่างจากรถ</p>
-          <p className="display-font mt-1 text-2xl font-extrabold">{zone.availableSlots}</p>
+          <p className="text-xs text-[#59413F]">{t("ว่างจากรถ")}</p>
+          <p className="display-font mt-1 text-2xl font-extrabold">{t(zone.availableSlots)}</p>
         </div>
         <div className="rounded-xl bg-[#F3F4F5] p-3 text-center">
-          <p className="text-xs text-[#59413F]">Occupied</p>
-          <p className="display-font mt-1 text-2xl font-extrabold">{zone.occupiedSlots}</p>
+          <p className="text-xs text-[#59413F]">{t("Occupied")}</p>
+          <p className="display-font mt-1 text-2xl font-extrabold">{t(zone.occupiedSlots)}</p>
         </div>
         <div className="rounded-xl bg-[#F3F4F5] p-3 text-center">
-          <p className="text-xs text-[#59413F]">Total</p>
-          <p className="display-font mt-1 text-2xl font-extrabold">{zone.totalSlots}</p>
+          <p className="text-xs text-[#59413F]">{t("Total")}</p>
+          <p className="display-font mt-1 text-2xl font-extrabold">{t(zone.totalSlots)}</p>
         </div>
       </div>
 
       <div className="mt-4 flex gap-3">
-        {zone.bookableSlots !== undefined && <p className="text-sm">พร้อมจอง {zone.bookableSlots} • จองในช่วงนี้ {zone.reservedSlots ?? 0}</p>}
-        <Link href={`/zone/${encodeURIComponent(zone.zoneId)}`} className="primary-cta rounded-xl px-4 py-2 text-sm font-semibold">
-          View Details
-        </Link>
+        {t(zone.bookableSlots !== undefined && <p className="text-sm">{t("พร้อมจอง ")}{t(zone.bookableSlots)}{t(" • จองในช่วงนี้ ")}{t(zone.reservedSlots ?? 0)}</p>)}
+        <Link href={`/zone/${encodeURIComponent(zone.zoneId)}`} className="primary-cta rounded-xl px-4 py-2 text-sm font-semibold">{t("View Details")}</Link>
       </div>
     </div>
   );

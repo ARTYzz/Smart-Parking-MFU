@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/providers/language-provider";
 import React from "react";
 
 type ZoneMarkerProps = {
@@ -20,18 +21,19 @@ function statusClass(status: ZoneMarkerProps["status"]) {
 }
 
 export function ZoneMarker({ id, status, x, y, onClick, selected }: ZoneMarkerProps) {
+  const { t } = useLanguage();
   const cls = statusClass(status);
 
   return (
     <button
-      aria-label={`Zone ${id} marker`}
+      aria-label={t(`Zone ${id} marker`)}
       onClick={() => onClick?.(id)}
       style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)" }}
       className={`absolute z-20 flex items-center gap-2 px-3 py-1 rounded-full text-white shadow-lg ring-2 ring-white/70 transition-transform duration-150 ${cls} ${
         selected ? "scale-110 ring-4 ring-offset-2" : "hover:scale-105"
       }`}
     >
-      <span className="font-semibold text-sm">{id}</span>
+      <span className="font-semibold text-sm">{t(id)}</span>
     </button>
   );
 }

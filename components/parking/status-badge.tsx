@@ -1,3 +1,5 @@
+"use client";
+import { useLanguage } from "@/components/providers/language-provider";
 import type { ParkingStatus } from "@/types/parking";
 
 interface StatusBadgeProps {
@@ -28,6 +30,7 @@ const statusMap: Record<ParkingStatus, { label: string; tone: string; text: stri
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
+  const { t } = useLanguage();
   const config = statusMap[status];
 
   return (
@@ -35,7 +38,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       className="label-caps inline-flex rounded-full px-3 py-1 text-[0.68rem] font-bold"
       style={{ backgroundColor: config.tone, color: config.text }}
     >
-      {config.label}
+      {t(config.label)}
     </span>
   );
 }

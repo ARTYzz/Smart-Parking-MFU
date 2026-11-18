@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, sessionUser } from "@/lib/auth/server";
+import { requestAuth } from "@/lib/auth/server";
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ user: await sessionUser(request.cookies.get(SESSION_COOKIE)?.value) }, { headers: { "Cache-Control": "no-store" } });
+  try {
+    const auth = requestAuth(request);
+    return auth.finish(NextResponse.json({ user: await auth.user() }));
+  } catch {
+    return NextResponse.json({ error: "Authentication unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
 }
