@@ -1,6 +1,6 @@
 "use client";
 import { useLanguage } from "@/components/providers/language-provider";
-import { useId, useState } from "react";
+import { memo, useId, useState } from "react";
 import { Minus, Plus, RotateCcw, MapPin, ArrowUpRight } from "lucide-react";
 import ZoneStatusCard from "./ZoneStatusCard";
 import { zoneCatalog } from "@/lib/services/catalog";
@@ -12,11 +12,12 @@ export type ZoneStatus = {
 };
 const colors = { available: "#25865d", nearly_full: "#d79724", full: "#c44848", "no-data": "#89938e" };
 const labels = { available: "พร้อมจอง", nearly_full: "ใกล้เต็ม", full: "เต็ม", "no-data": "ไม่มีข้อมูล" };
-// Reference-image coordinates. E2 and C5 intentionally have no invented map position.
+// C5 is a status-only inset, not a surveyed building position. E2 remains unlocated.
 const pins = [
   { id: "D1", x: 168, y: 449 }, { id: "E1", x: 280, y: 426 },
   { id: "C2", x: 419, y: 429 }, { id: "C3", x: 529, y: 335 },
   { id: "M-STORE", x: 252, y: 657 },
+  { id: "C5", x: 650, y: 675 },
 ];
 const buildings = [
   ["AD2", 130, 72, 54, 63], ["S8", 111, 173, 80, 39], ["S8", 91, 234, 80, 31],
@@ -40,7 +41,7 @@ const minor = [
  "M524 566 C548 595 558 641 585 640 C609 630 579 588 618 553 L713 440 L735 299 L725 199 L633 169 L633 143 C688 141 711 168 757 168",
  "M635 169 L621 179", "M703 273 L735 291 L760 293",
 ];
-export default function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
+function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
   const { t } = useLanguage();
   const id = useId().replace(/:/g, "");
   const [selected, setSelected] = useState<string | null>(null);
@@ -147,7 +148,7 @@ export default function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
         <div className="mb-5 flex items-start justify-between"><div><p className="text-[10px] font-bold tracking-[.2em] text-[#80917b]">{t("FIND YOUR SPACE")}</p><h4 className="mt-1 font-bold text-[#2b4235]">{t("เลือกโซนจอดรถ")}</h4></div><MapPin size={19} className="text-[#7d000f]" /></div>
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
           {t(zoneCatalog.map(({ id }) => { const zone = getZone(id); return <button key={id} onClick={() => setSelected(id)} aria-pressed={selected === id} className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-left transition-colors ${selected === id ? "border-[#7d000f]/30 bg-[#7d000f]/5" : "border-[#e4e9df] bg-white hover:bg-[#f0f4eb]"}`}>
-            <span><span className="flex items-center gap-2 text-sm font-bold text-[#334636]"><i className="h-2 w-2 rounded-full" style={{ background: colors[zone.status] }} />{t(id === "M-STORE" ? "M-Store" : id)}</span><span className="mt-1 block text-[10px] text-[#7e897a]">{t(pins.some(p => p.id === id) ? labels[zone.status] : "รอยืนยันตำแหน่งบนแผนที่")}</span></span>
+            <span><span className="flex items-center gap-2 text-sm font-bold text-[#334636]"><i className="h-2 w-2 rounded-full" style={{ background: colors[zone.status] }} />{t(id === "M-STORE" ? "M-Store" : id)}</span><span className="mt-1 block text-[10px] text-[#7e897a]">{t(pins.some(p => p.id === id && id !== "C5") ? labels[zone.status] : "รอยืนยันตำแหน่งบนแผนที่")}</span></span>
             <span className="text-right"><strong className="block text-lg tabular-nums" style={{ color: colors[zone.status] }}>{t(zone.status === "no-data" ? "—" : zone.bookableSlots ?? zone.availableSlots)}</strong><span className="text-[9px] text-[#7e897a]">{t("ช่องพร้อมจอง")}</span></span>
           </button>; }))}
         </div>
@@ -160,3 +161,5 @@ export default function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
     </div>
   </div>;
 }
+
+export default memo(CampusParkingMap);

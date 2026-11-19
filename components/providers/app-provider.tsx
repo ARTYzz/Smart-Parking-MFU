@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { ParkingZone } from "@/types/parking";
 import type { AppUser, BookingSnapshot, NotificationSnapshot } from "@/lib/services/contracts";
 import { authService, parkingService, bookingService, notificationService } from "@/lib/services";
@@ -12,6 +12,7 @@ const AppContext = createContext<{
   refresh: () => Promise<void>; signIn: (id?: string) => Promise<void>; signOut: () => Promise<void>;
 } | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
+  const currentUser = useRef<AppUser | null>(null);
   const [zones, setZones] = useState<ParkingZone[]>([]);
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,21 +23,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notificationSnapshot, setNotificationSnapshot] = useState<NotificationSnapshot>({ userId: null, notifications: [], followedZoneIds: [] });
   const [notificationError, setNotificationError] = useState("");
   const refreshNotifications = useCallback(async () => {
-    try { setNotificationSnapshot(await notificationService.getSnapshot()); setNotificationError(""); }
+    try { const next = await notificationService.getSnapshot(); setNotificationSnapshot(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next); setNotificationError(""); }
     catch { setNotificationSnapshot({ userId: null, notifications: [], followedZoneIds: [] }); setNotificationError("โหลดการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่"); }
   }, []);
   const refresh = useCallback(async () => {
     let session: AppUser | null;
     try { session = await authService.getSession(); }
-    catch { setUser(null); setError("ตรวจสอบบัญชีไม่สำเร็จ กรุณาลองใหม่"); setLoading(false); return; }
-    setUser(session);
+    catch { currentUser.current = null; setUser(null); setError("ตรวจสอบบัญชีไม่สำเร็จ กรุณาลองใหม่"); setLoading(false); return; }
+    currentUser.current = session;
+    setUser(previous => JSON.stringify(previous) === JSON.stringify(session) ? previous : session);
     if (!session) {
       setZones([]); setBookingSnapshot({ bookings: [], events: [], availability: [] });
       setNotificationSnapshot({ userId: null, notifications: [], followedZoneIds: [] });
       setError(""); setLoading(false); return;
     }
     const [parking, booking] = await Promise.allSettled([parkingService.listZones(), bookingService.getSnapshot()]);
-    setZones(parking.status === "fulfilled" ? parking.value : []);
+    setZones(previous => parking.status === "fulfilled" && JSON.stringify(previous) === JSON.stringify(parking.value) ? previous : parking.status === "fulfilled" ? parking.value : []);
     setError(parking.status === "rejected" ? "โหลดข้อมูลที่จอดไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่" : "");
     setLoading(false);
     setNow(Date.now());
@@ -48,9 +50,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // refresh awaits both external services before committing state; no synchronous update.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
-    const sync = (event: StorageEvent) => { if (event.key === demoStorageKey || event.key === null) void refresh(); };
+    const sync = (event: StorageEvent) => {
+      if (event.key !== demoStorageKey && event.key !== null) return;
+      try {
+        const next = event.newValue ? JSON.parse(event.newValue) : null;
+        if (!next || next.accountId !== currentUser.current?.id) { void refresh(); return; }
+        // Booking/notification writes in another tab are not authentication changes.
+        void parkingService.listZones().then(zones => setZones(previous => JSON.stringify(previous) === JSON.stringify(zones) ? previous : zones)).catch(() => {});
+      } catch { void refresh(); }
+    };
     window.addEventListener("storage", sync);
-    const focus = () => void refresh();
+    const focus = () => { if (document.visibilityState !== "hidden") void refresh(); };
     window.addEventListener("focus", focus);
     const sessionTimer = setInterval(focus, 60_000);
     return () => { window.removeEventListener("storage", sync); window.removeEventListener("focus", focus); clearInterval(sessionTimer); };
@@ -58,13 +68,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     let active = true;
+    let running = false;
     const tick = async () => {
+      if (running || document.visibilityState === "hidden") return;
+      running = true;
       setNow(Date.now());
       try {
         const snapshot = await bookingService.getSnapshot();
-        if (active) { setBookingSnapshot(snapshot); setBookingError(""); }
+        if (active) { setBookingSnapshot(previous => JSON.stringify(previous) === JSON.stringify(snapshot) ? previous : snapshot); setBookingError(""); }
       } catch { if (active) setBookingError("โหลดการจองไม่สำเร็จ กรุณาลองใหม่"); }
       if (active) await refreshNotifications();
+      running = false;
     };
     const timer = setInterval(() => void tick(), 1000);
     window.addEventListener("focus", tick);

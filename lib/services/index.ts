@@ -1,5 +1,5 @@
 import { getParkingZoneDetails, getPublicZones } from "@/lib/api";
-import type { AuthService, BookingService, ParkingService, NotificationService } from "./contracts";
+import type { AppUser, AuthService, BookingService, ParkingService, NotificationService } from "./contracts";
 import { mockNotificationService } from "./notifications";
 import { mockBookingService, demoBookingPolicies } from "./booking";
 import { bindMockUser, mockParkingService } from "./mock";
@@ -11,16 +11,23 @@ const apiParkingService: ParkingService = {
   listZones: getPublicZones,
   getDetails: getParkingZoneDetails,
 };
-const googleAuthService: AuthService = {
-  async getSession() {
+let pendingSession: Promise<AppUser | null> | null = null;
+async function fetchSession(): Promise<AppUser | null> {
     const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
     if (!response.ok) throw new Error("ตรวจสอบบัญชีไม่สำเร็จ");
     const { user } = await response.json();
     bindMockUser(user);
     return user;
+}
+const googleAuthService: AuthService = {
+  getSession() {
+    // Share only an in-flight request; never cache an authenticated result across requests.
+    if (!pendingSession) pendingSession = fetchSession().finally(() => { pendingSession = null; });
+    return pendingSession;
   },
   async signIn() { window.location.assign("/api/auth/google"); return null; },
   async signOut() {
+    await pendingSession?.catch(() => {});
     const response = await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     if (!response.ok) throw new Error("ออกจากระบบไม่สำเร็จ");
     bindMockUser(null);

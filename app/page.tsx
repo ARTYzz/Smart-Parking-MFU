@@ -1,5 +1,6 @@
 "use client";
 import { useLanguage } from "@/components/providers/language-provider";
+import { useMemo } from "react";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -15,7 +16,7 @@ export default function HomePage() {
   const { t } = useLanguage();
   const { zones, loading, error, refresh, user, bookingSnapshot } = useApp();
   const summary = buildParkingSummary(zones);
-  const mapZones: ZoneStatus[] = zones.map(zone => {
+  const mapZones: ZoneStatus[] = useMemo(() => zones.map(zone => {
     const availability = bookingSnapshot.availability.find(item => item.zoneId === zone.id);
     const status = availability ? getParkingStatus(zone.hasData, zone.total - availability.bookable, zone.total) : zone.status;
     return ({
@@ -23,7 +24,7 @@ export default function HomePage() {
     availableSlots: zone.free, status: status === "nearly-full" ? "nearly_full" : status,
     bookableSlots: availability?.bookable, reservedSlots: availability?.reserved,
     updatedAt: zone.timestamp,
-  }); });
+  }); }), [zones, bookingSnapshot]);
   return <main className="min-h-screen"><AppHeader /><PageContainer>
     <section className="section-surface rounded-3xl p-6 md:p-8">
       <p className="label-caps text-sm text-[#7D000F]">{t("Smart Parking Dashboard")}</p>
