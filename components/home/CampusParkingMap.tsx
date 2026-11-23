@@ -41,7 +41,7 @@ const minor = [
  "M524 566 C548 595 558 641 585 640 C609 630 579 588 618 553 L713 440 L735 299 L725 199 L633 169 L633 143 C688 141 711 168 757 168",
  "M635 169 L621 179", "M703 273 L735 291 L760 293",
 ];
-function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
+function CampusParkingMap({ zones, showSidebar = true }: { zones: ZoneStatus[]; showSidebar?: boolean }) {
   const { t } = useLanguage();
   const id = useId().replace(/:/g, "");
   const [selected, setSelected] = useState<string | null>(null);
@@ -59,7 +59,7 @@ function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
         <button aria-label={t("คืนขนาดแผนที่")} onClick={() => setZoom(1)} className="rounded-lg p-2 hover:bg-stone-100"><RotateCcw size={15} /></button>
       </div>
     </div>
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_260px]">
+    <div className={showSidebar ? "grid lg:grid-cols-[minmax(0,1fr)_260px]" : "min-w-0"}>
       <div className="relative min-w-0">
         <div className="max-h-[820px] overflow-auto overscroll-contain" tabIndex={0} aria-label={t("แผนที่มหาวิทยาลัย เลื่อนเพื่อสำรวจเมื่อขยาย")}>
           <div style={{ width: `${zoom * 100}%`, minWidth: 560 }}>
@@ -144,7 +144,7 @@ function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
           <span className="text-[11px] text-[#7a8575]">{t("เลื่อนแผนที่ได้เมื่อขยาย / บนมือถือ")}</span>
         </div>
       </div>
-      <aside className="border-t border-[#dce4db] bg-white/80 p-5 lg:border-l lg:border-t-0">
+      {showSidebar && <aside className="border-t border-[#dce4db] bg-white/80 p-5 lg:border-l lg:border-t-0">
         <div className="mb-5 flex items-start justify-between"><div><p className="text-[10px] font-bold tracking-[.2em] text-[#80917b]">{t("FIND YOUR SPACE")}</p><h4 className="mt-1 font-bold text-[#2b4235]">{t("เลือกโซนจอดรถ")}</h4></div><MapPin size={19} className="text-[#7d000f]" /></div>
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
           {t(zoneCatalog.map(({ id }) => { const zone = getZone(id); return <button key={id} onClick={() => setSelected(id)} aria-pressed={selected === id} className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-left transition-colors ${selected === id ? "border-[#7d000f]/30 bg-[#7d000f]/5" : "border-[#e4e9df] bg-white hover:bg-[#f0f4eb]"}`}>
@@ -154,7 +154,7 @@ function CampusParkingMap({ zones }: { zones: ZoneStatus[] }) {
         </div>
         <div className="mt-5 rounded-xl bg-[#edf2e6] p-4 text-xs leading-relaxed text-[#64765a]"><ArrowUpRight size={18} className="mb-2" />{t("เลือกหมุดหรือรายการโซน เพื่อดูจำนวนช่องจอดและรายละเอียดด้านล่าง")}</div>
         <p className="mt-4 text-[10px] leading-relaxed text-[#90988b]">{t("วาดตำแหน่งอาคารตามภาพอ้างอิง")}<br />{t("ไม่ใช่แผนที่นำทางหรือระยะทางจริง")}</p>
-      </aside>
+      </aside>}
     </div>
     <div aria-live="polite" className="border-t border-[#dce4db] bg-white px-5 pb-5">
       {t(selectedZone ? <ZoneStatusCard zone={selectedZone} /> : <p className="pt-5 text-center text-sm text-[#7c8875]">{t("เลือกโซนบนแผนที่เพื่อดูรายละเอียดที่จอดรถ")}</p>)}

@@ -7,24 +7,45 @@ import { useCallback, useRef, useState } from "react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ProfileDrawer } from "./profile-drawer";
 import { useApp } from "@/components/providers/app-provider";
-import { APP_NAME, APP_DESCRIPTION } from "@/lib/constants";
+import { usePathname } from "next/navigation";
+import { parkingMode } from "@/lib/services";
+import { Home, Map, Search, Ticket, Car, History, Bell, Menu, X } from "lucide-react";
+import { DemoControls } from "./demo-controls";
+const navigation = [
+  ["/", "หน้าหลัก", "Overview", Home],
+  ["/parking-zones", "พื้นที่จอดทั้งหมด", "Parking zones", Map],
+  ["/find-spot", "ค้นหาและจอง", "Find and reserve", Search],
+  ["/my-booking", "การจองของฉัน", "My bookings", Ticket],
+  ["/my-vehicle", "รถของฉัน", "My vehicles", Car],
+  ["/history", "ประวัติการจอง", "Booking history", History],
+  ["/notifications", "การแจ้งเตือน", "Notifications", Bell],
+] as const;
 import { LanguageSwitcher } from "./language-switcher";
 
 export function AppHeader() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useApp();
   const profileTrigger = useRef<HTMLButtonElement>(null);
   const [panel, setPanel] = useState<"profile" | "notifications" | null>(null);
   const close = useCallback(() => setPanel(null), []);
-  return <header className="glass-panel sticky top-0 z-30">
-    <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 px-5 py-4 md:px-8">
-      <Link href="/" className="min-w-0"><p className="label-caps text-[0.6rem] font-semibold text-[#7D000F]/80 md:text-[0.7rem]">{t("Mae Fah Luang University")}</p><h1 className="display-font mt-1 text-lg font-extrabold text-[#191C1D] md:text-2xl">{t(APP_NAME)}</h1><p className="mt-1 hidden text-sm text-[#59413F] sm:block">{t(APP_DESCRIPTION)}</p></Link>
+  const path = usePathname();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const active = path.startsWith("/zone/") ? "/parking-zones" : path;
+  const title = navigation.find(([href]) => href === active);
+  const nav = <><Link href="/" className="brand"><b>P</b><span>MFU Parking<small>SMART PARKING</small></span></Link><nav className="side-links">{navigation.map(([href, th, en, Icon]) =>
+    <Link key={href} href={href} aria-current={href === active ? "page" : undefined} onClick={() => dialog.current?.close()}><Icon size={18}/>{language === "th" ? th : en}</Link>)}</nav><div className="side-account"><UserAvatar user={user}/><strong>{user?.name}</strong></div></>;
+  return <header className="app-toolbar">
+    <aside className="desktop-side">{nav}</aside>
+    <dialog ref={dialog} className="mobile-side"><button aria-label={language === "th" ? "ปิด" : "Close"} onClick={() => dialog.current?.close()}><X/></button>{nav}</dialog>
+    <div className="toolbar-inner"><button className="menu-trigger" aria-label={t("เมนูหลัก")} onClick={() => dialog.current?.showModal()}><Menu/></button>
+    <span className="crumb"><span className="crumb-label">MFU Smart Parking　/　</span><strong>{title?.[language === "th" ? 1 : 2]}</strong></span>
       <div className="relative flex items-center gap-3 justify-self-end">
+        <details className="source-menu"><summary>{parkingMode === "mock" ? "● DEMO DATA" : "● API"}</summary><DemoControls/></details>
         <NotificationBell open={panel === "notifications"} onToggle={() => setPanel(value => value === "notifications" ? null : "notifications")} onClose={close} />
         <LanguageSwitcher />
         <button ref={profileTrigger} aria-label={t(`เปิดเมนูบัญชี ${user?.name ?? "ผู้เยี่ยมชม"}`)} aria-haspopup="dialog" aria-expanded={panel === "profile"} onClick={() => setPanel("profile")} className="flex h-11 w-11 items-center justify-center rounded-full bg-[#7D000F] font-bold text-white shadow-sm ring-2 ring-white hover:bg-[#A01D22] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7D000F]"><UserAvatar user={user} /></button>
       </div>
-      <nav aria-label={t("เมนูหลัก")} className="col-span-2 flex flex-wrap gap-2 text-sm font-semibold">{t([{ href: "/", label: "Dashboard" }, { href: "/find-spot", label: "Quick Finder" }, { href: "/parking-zones", label: "Parking Zones" }].map(item => <Link key={item.href} href={item.href} onClick={close} className="rounded-full bg-white/70 px-4 py-2 text-[#7D000F] hover:bg-white">{t(item.label)}</Link>))}</nav>
+
     </div>
     {t(panel === "profile" && <ProfileDrawer onClose={close} returnFocus={profileTrigger} />)}
   </header>;

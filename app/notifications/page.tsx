@@ -24,7 +24,7 @@ export default function NotificationsPage() {
     finally { setBusy(false); }
   }
   return <main><AppHeader /><PageContainer>
-    <section className="section-surface rounded-3xl p-6 md:p-8">
+    <section className="page-intro">
       <p className="label-caps text-sm font-semibold text-[#7D000F]">{t("Notification Center")}</p>
       <h1 className="mt-2 flex items-center gap-3 text-3xl font-bold"><Bell />{t("การแจ้งเตือน")}</h1>
       <p className="mt-3">{t("ข่าวการจองและโซนที่คุณติดตาม • ")}{user?.name ?? t("ผู้เยี่ยมชม")}</p>
@@ -32,7 +32,7 @@ export default function NotificationsPage() {
     </section>
     {t(loading ? <p className="mt-6">{t("กำลังโหลด…")}</p> : !bookingEnabled ? <p className="mt-6">{t("รอเชื่อมบริการแจ้งเตือนจริง")}</p> : !user ? <Link href="/login" className="primary-cta mt-6 inline-block rounded-xl px-5 py-3">{t("เลือกบัญชีสาธิตเพื่อดูการแจ้งเตือน")}</Link> :
     <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-      <section>
+      <section className="card-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2"><button onClick={() => setUnreadOnly(false)} aria-pressed={!unreadOnly} className={`rounded-full px-4 py-2 ${!unreadOnly ? "bg-[#7D000F] text-white" : "bg-white"}`}>{t("ทั้งหมด ")}{t(notifications.length)}</button><button onClick={() => setUnreadOnly(true)} aria-pressed={unreadOnly} className={`rounded-full px-4 py-2 ${unreadOnly ? "bg-[#7D000F] text-white" : "bg-white"}`}>{t("ยังไม่อ่าน ")}{t(unread)}</button></div>
           <button disabled={busy || unread === 0 || Boolean(notificationError)} onClick={() => void act(() => notificationService.markAllRead(user.id))} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-[#7D000F] disabled:opacity-50"><CheckCheck className="h-4 w-4" />{t("อ่านทั้งหมด")}</button>
@@ -53,7 +53,7 @@ export default function NotificationsPage() {
         <h2 className="flex items-center gap-2 text-xl font-bold"><MapPin className="h-5 w-5" />{t("ติดตามโซน")}</h2>
         <p className="mt-3 text-sm text-[#59413F]">{t("รับข้อความเมื่อช่องพร้อมจองใกล้เต็ม (เหลือไม่เกิน 30%) หรือเต็ม รวมผลการจองปัจจุบัน")}</p>
         <p className="mt-2 text-xs text-[#59413F]">{t("หากโซนใกล้เต็มหรือเต็มอยู่แล้ว จะมีข้อความแรกเมื่อติดตาม ไม่แจ้งซ้ำจนกว่าสถานะจะเปลี่ยน")}</p>
-        <div className="mt-4 space-y-2">{t(zones.map(zone => <label key={zone.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[#F3F4F5] p-3"><span>{t(zone.name)}</span><input type="checkbox" aria-label={t(`ติดตามโซน ${zone.id}`)} checked={notificationSnapshot.userId === user.id && notificationSnapshot.followedZoneIds.includes(zone.id)} disabled={busy || Boolean(notificationError)} onChange={e => { const follow = e.target.checked; void act(() => notificationService.followZone(zone.id, follow, user.id)); }} className="h-5 w-5 accent-[#7D000F]" /></label>))}</div>
+        <div className="mt-4 space-y-2">{t(zones.map(zone => <label key={zone.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[#F3F4F5] p-3"><span className="flex items-center gap-3"><strong className="zone-icon">{zone.id}</strong>{t(zone.name)}</span><input type="checkbox" aria-label={t(`ติดตามโซน ${zone.id}`)} checked={notificationSnapshot.userId === user.id && notificationSnapshot.followedZoneIds.includes(zone.id)} disabled={busy || Boolean(notificationError)} onChange={e => { const follow = e.target.checked; void act(() => notificationService.followZone(zone.id, follow, user.id)); }} role="switch" className="zone-watch-switch" /></label>))}</div>
         <p className="mt-4 text-xs text-[#59413F]">{t("หยุดติดตามแล้วข้อความเดิมยังอยู่ โหมดสาธิตตรวจสถานะขณะเปิดเว็บ และไม่สามารถทราบการเปลี่ยนแปลงที่พลาดไประหว่างปิดเว็บ")}</p>
       </aside>
     </div>)}

@@ -319,7 +319,8 @@ export async function getParkingZoneDetails(
     throw new Error("NEXT_PUBLIC_DETAILS_API is not configured");
   }
 
-  const url = `${DETAILS_API}?zone=${encodeURIComponent(zoneId)}`;
+  const url = new URL(DETAILS_API, typeof window === "undefined" ? undefined : window.location.origin);
+  url.searchParams.set("zone", zoneId);
 
   const response = await fetch(url, {
     cache: "no-store",
@@ -334,6 +335,7 @@ export async function getParkingZoneDetails(
 }
 
 export async function getPublicZones(): Promise<ParkingZone[]> {
+  if (ZONES_API) return getParkingZones();
   const url = `${PUBLIC_API_BASE}/zones`;
   const payload = await fetchJson(url);
   const list = extractList(unwrapPayload(payload));
