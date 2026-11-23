@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { universityUser } from "./policy";
+import { hasFreshOAuthLogin, universityUser } from "./policy";
 
 export function authConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,7 +39,7 @@ export function requestAuth(request: NextRequest) {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
     const claims = await supabase.auth.getClaims();
-    if (claims.error || !claims.data) return null;
+    if (claims.error || !claims.data || !hasFreshOAuthLogin(claims.data.claims)) return null;
     return universityUser(data.user, claims.data.claims);
   }
   return { supabase, finish, user };

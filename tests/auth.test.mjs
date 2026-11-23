@@ -14,7 +14,20 @@ function load(file, modules = {}, env = {}) {
 const policy = load('lib/auth/policy.ts');
 const identity = { provider: 'google', identity_data: { sub: 'google-sub', email: 'student@lamduan.mfu.ac.th', email_verified: true, full_name: 'Student' } };
 const user = { id: 'supabase-id', email: identity.identity_data.email, email_confirmed_at: '2026-11-18T00:00:00Z', app_metadata: { provider: 'google' }, identities: [identity], user_metadata: { role: 'admin' } };
-const claims = { sub: user.id, amr: [{ method: 'oauth' }] };
+const claims = { sub: user.id, amr: [{ method: 'oauth', timestamp: Math.floor(Date.now() / 1000) }] };
+
+test('a refreshed token cannot extend the OAuth login deadline', () => {
+  const now = Date.UTC(2026, 10, 24, 12);
+  const timestamp = now / 1000;
+  const session = { amr: [{ method: 'oauth', timestamp }] };
+  assert.equal(policy.hasFreshOAuthLogin(session, now + (480 * 60 - 1) * 1000), true);
+  const refreshed = { iat: timestamp + 480 * 60, amr: [...session.amr, { method: 'token_refresh', timestamp: timestamp + 480 * 60 }] };
+  assert.equal(policy.hasFreshOAuthLogin(refreshed, now + 480 * 60_000), false);
+  assert.equal(policy.hasFreshOAuthLogin({ amr: [{ method: 'oauth' }] }, now), false);
+
+  const shortPolicy = load('lib/auth/policy.ts', {}, { AUTH_SESSION_MAX_MINUTES: '15' });
+  assert.equal(shortPolicy.hasFreshOAuthLogin(session, now + 15 * 60_000), false);
+});
 
 test('verified Google university identity maps to student and stable mock history key', () => {
   const result = policy.universityUser(user, claims);
