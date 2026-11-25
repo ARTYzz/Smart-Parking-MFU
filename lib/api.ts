@@ -350,6 +350,30 @@ export async function getPublicZones(): Promise<ParkingZone[]> {
   return zones;
 }
 
+export async function getAdminParkingZones(): Promise<ParkingZone[]> {
+  const payload = await fetchJson("/api/parking/zones");
+  return extractList(unwrapPayload(payload)).map((item, index) => {
+    const id = String(item.zone).toUpperCase();
+    const timestamp = toNullableString(item.last_updated);
+    const total = toNumber(pick<number>(item, ["total_slots"]));
+    const free = toNumber(pick<number>(item, ["free_slots"]));
+    const occupied = toNumber(pick<number>(item, ["occupied_slots"]));
+    const skipped = toNumber(pick<number>(item, ["unknown_slots"]));
+    const hasData = timestamp !== null && occupied + free > 0;
+    const stats = (value: unknown) => {
+      const breakdown = asObject(value);
+      return { free: toNumber(pick<number>(breakdown, ["free"])), occupied: toNumber(pick<number>(breakdown, ["occupied"])) };
+    };
+    const status = getParkingStatus(hasData, occupied, total);
+    return {
+      id, name: `โซน ${id}`, rowNumber: index + 1, timestamp, total, occupied, free, skipped,
+      car: stats(item.car), motorcycle: stats(item.motorcycle), snapLink: null, hasData,
+      occupancyRate: calculateOccupancyRate(occupied, total),
+      status: hasData && free === 0 && skipped > 0 ? "no-data" : status,
+    };
+  });
+}
+
 export async function getPublicZonesOrFallback(
   fallback: ParkingZone[],
 ): Promise<ParkingZone[]> {

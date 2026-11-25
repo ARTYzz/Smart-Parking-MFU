@@ -1,4 +1,4 @@
-import { getParkingZoneDetails, getPublicZones } from "@/lib/api";
+import { getAdminParkingZones, getParkingZoneDetails } from "@/lib/api";
 import type { AppUser, AuthService, BookingService, ParkingService, NotificationService } from "./contracts";
 import { mockNotificationService } from "./notifications";
 import { mockBookingService, demoBookingPolicies } from "./booking";
@@ -8,8 +8,8 @@ export const parkingMode = process.env.NEXT_PUBLIC_PARKING_MODE === "api" ? "api
 export const authMode = "google";
 // Real data failures remain visible; never silently substitute demo data in API mode.
 const apiParkingService: ParkingService = {
-  listZones: getPublicZones,
-  getDetails: getParkingZoneDetails,
+  listZones: getAdminParkingZones,
+  getDetails: process.env.NEXT_PUBLIC_DETAILS_API ? getParkingZoneDetails : async () => [],
 };
 let pendingSession: Promise<AppUser | null> | null = null;
 async function fetchSession(): Promise<AppUser | null> {
