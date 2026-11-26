@@ -9,6 +9,31 @@ import { vehicleService, vehicleTypes, liveVehicleReviews, vehicleEvidenceLimit,
 import { VehicleChangeForm } from "@/components/parking/vehicle-change-form";
 
 const categories = { sedan: ["รถเก๋งซีดาน", "Sedan"], hatchback: ["แฮทช์แบ็ก", "Hatchback"], suv: ["เอสยูวี / ครอสโอเวอร์", "SUV / Crossover"], pickup: ["กระบะ", "Pickup"], van: ["รถตู้ / MPV", "Van / MPV"], motorcycle: ["มอเตอร์ไซค์", "Motorcycle"], other: ["อื่น ๆ", "Other"] };
+
+function VehicleStatusBadges({ vehicle, english }: { vehicle: RegisteredVehicle; english: boolean }) {
+  const text = (th: string, en: string) => english ? en : th;
+  const change = vehicle.change;
+  const status = vehicle.status;
+  const registration = status === "approved" ? text("รถยืนยันแล้ว", "Vehicle approved")
+    : status === "rejected" ? text("ต้องแก้ไข", "Changes required") : text("รอตรวจสอบการลงทะเบียน", "Registration pending");
+  const badgeTone = status === "approved" ? "bg-green-50 text-green-800"
+    : status === "rejected" ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-800";
+
+  return <div className="flex flex-col items-end gap-1.5" aria-live="polite">
+    {change && <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 ring-inset ${
+      change.status === "pending" ? "bg-amber-100 text-amber-950 ring-amber-300"
+        : change.status === "approved" ? "bg-green-50 text-green-800 ring-green-200" : "bg-red-50 text-red-800 ring-red-200"
+    }`}>
+      {change.status === "pending" && <Clock3 size={14} aria-hidden="true" />}
+      {change.kind === "edit" ? text("คำขอแก้ไข", "Edit request") : text("คำขอลบ", "Removal request")}
+      {" · "}
+      {change.status === "pending" ? text("รอตรวจสอบ", "Pending review")
+        : change.status === "approved" ? text("อนุมัติแล้ว", "Approved") : text("ปฏิเสธแล้ว", "Rejected")}
+    </div>}
+    <span className={`rounded-full px-3 py-1 text-xs font-medium ${change ? "bg-[#faf8f4] text-[#796960]" : badgeTone}`}>{registration}</span>
+  </div>;
+}
+
 export default function MyVehiclePage() {
   const { user } = useApp();
   return <main className="min-h-screen"><AppHeader /><PageContainer>{user && <VehicleManager key={user.id} userId={user.id} />}</PageContainer></main>;
@@ -26,6 +51,7 @@ function VehicleManager({ userId }: { userId: string }) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const form = useRef<HTMLFormElement>(null);
   const submission = useRef<string | null>(null);
+  const listRevision = useRef(0);
   const [fileName, setFileName] = useState("");
   const active = useRef(true);
   useEffect(() => {
@@ -33,7 +59,11 @@ function VehicleManager({ userId }: { userId: string }) {
     vehicleService.list(userId).then(rows => { if (active.current) { setVehicles(rows.vehicles); setDeleted(rows.deleted); } }).catch(e => { if (active.current) setError(e instanceof VehicleError ? e.message : "storage"); }).finally(() => { if (active.current) setLoading(false); });
     return () => { active.current = false; };
   }, [userId]);
-  async function reload() { const rows = await vehicleService.list(userId); if (active.current) { setVehicles(rows.vehicles); setDeleted(rows.deleted); } }
+  async function reload() {
+    const revision = ++listRevision.current;
+    const rows = await vehicleService.list(userId);
+    if (active.current && revision === listRevision.current) { setVehicles(rows.vehicles); setDeleted(rows.deleted); }
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     const data = new FormData(event.currentTarget);
@@ -99,11 +129,20 @@ function VehicleManager({ userId }: { userId: string }) {
       <section className="card-surface p-5"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">{text("รถที่ลงทะเบียน", "Registered vehicles")}</h2><span className="rounded-full bg-[#eee5dd] px-3 py-1 text-xs">{vehicles.length}</span>{liveVehicleReviews && <button type="button" disabled={busy || loading} onClick={() => { setBusy(true); setError(""); reload().catch(() => setError("integration")).finally(() => setBusy(false)); }} className="text-sm font-semibold underline">{text("อัปเดตสถานะ", "Refresh status")}</button>}</div>
         {error && !adding && <p role="alert" className="mb-4 text-sm text-red-800">{errors[error] ?? errors.storage}</p>}
         {loading ? <p role="status">{text("กำลังโหลด…", "Loading…")}</p> : vehicles.length === 0 ? <div className="rounded-3xl border border-dashed border-[#ddcfc4] p-10 text-center"><CarFront className="mx-auto mb-4 text-[#b59d8c]" size={40} /><p className="font-semibold">{text("ยังไม่มีรถที่ลงทะเบียน", "No vehicles registered")}</p><p className="mt-2 text-sm text-[#938176]">{text("เพิ่มรถคันแรกด้วยปุ่มด้านบน", "Use the button above to add your first vehicle.")}</p></div> : <div className="space-y-4">{vehicles.map(vehicle => <article key={vehicle.id} className="rounded-3xl border border-[#e8dfdb] bg-white p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-[#9c897d]">{categories[vehicle.category][en ? 1 : 0]}</p><h3 className="mt-1 text-xl font-extrabold text-[#7d000f]">{vehicle.brand}</h3></div><span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${vehicle.status === "approved" ? "bg-green-50 text-green-800" : vehicle.status === "rejected" ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-800"}`}>{vehicle.status === "approved" ? text("ยืนยันแล้ว", "Approved") : vehicle.status === "rejected" ? text("ต้องแก้ไข", "Changes required") : text("รอตรวจสอบ", "Pending review")}</span></div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><p className="text-xs text-[#9c897d]">{categories[vehicle.category][en ? 1 : 0]}</p><h3 className="mt-1 text-xl font-extrabold text-[#7d000f]">{vehicle.brand}</h3></div>
+            <VehicleStatusBadges vehicle={vehicle} english={en} />
+          </div>
           <div className="my-4 rounded-xl border-2 border-[#e1d9ce] bg-[#faf8f4] px-5 py-3 text-center"><p className="text-2xl font-bold tracking-wider">{vehicle.plate}</p><p className="mt-1 text-xs text-[#857367]">{vehicle.province}</p></div>
           <p className="text-xs text-[#8a786c]">{text("ส่งคำขอ", "Submitted")} · {new Date(vehicle.submittedAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}</p>
           {vehicle.reviewNote && <p className="mt-3 text-sm">{vehicle.reviewNote}</p>}
-          {liveVehicleReviews && <VehicleChangeForm key={vehicle.version} vehicle={vehicle} refresh={reload} categoryLabel={type => categories[type][en ? 1 : 0]} />}
+          {liveVehicleReviews && <VehicleChangeForm key={vehicle.version} vehicle={vehicle}
+            onSubmitted={change => {
+              listRevision.current++;
+              setVehicles(current => current.map(row => row.id === vehicle.id && row.version === vehicle.version
+                && row.change?.id !== change.id ? { ...row, change } : row));
+            }}
+            categoryLabel={type => categories[type][en ? 1 : 0]} />}
           {!liveVehicleReviews && <><p className="mt-3 text-xs leading-6 text-[#8a786c]">{text("ระบบแอดมินยังไม่เปิดใช้งาน คำขอสาธิตจะคงสถานะรอตรวจสอบ", "Admin review is not available yet. Demo requests remain pending.")}</p>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#eee6df] pt-4"><button onClick={() => download(vehicle)} className="flex items-center gap-1.5 text-xs font-semibold text-[#7d000f]"><Download size={14} />{text("ดาวน์โหลดหลักฐาน", "Download evidence")}</button><button disabled={busy} onClick={() => setDeleting(vehicle.id)} className="flex items-center gap-1.5 text-xs text-[#8c7066]"><Trash2 size={14} />{text("ลบคำขอ", "Delete request")}</button></div>
           {deleting === vehicle.id && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm"><p>{text("ลบรถและไฟล์หลักฐานนี้?", "Delete this vehicle and its evidence?")}</p><div className="mt-3 flex gap-4"><button disabled={busy} onClick={() => void remove(vehicle.id)} className="font-semibold text-red-800">{text("ยืนยันลบ", "Confirm deletion")}</button><button disabled={busy} onClick={() => setDeleting(null)}>{text("ยกเลิก", "Cancel")}</button></div></div>}</>}

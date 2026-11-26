@@ -27,7 +27,7 @@ async function forward(request: NextRequest, method: "GET" | "POST" | "PUT") {
       }
       upstream = await adminFetch(`${path}/${encodeURIComponent(body.id)}/changes`, {
         method: "POST", headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ applicantId: user.id, mutation: body.mutation }),
+        body: JSON.stringify({ applicantId: user.id, mutation: body.mutation, requestReason: body.requestReason }),
       });
     } else {
       const form = await request.formData().catch(() => null);

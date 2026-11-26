@@ -4,7 +4,7 @@ export const vehicleTypes = ["sedan", "hatchback", "suv", "pickup", "van", "moto
 export type VehicleCategory = typeof vehicleTypes[number];
 export type VehicleStatus = "pending" | "approved" | "rejected";
 export interface VehicleChange {
-  id: string; kind: "edit" | "delete"; status: VehicleStatus; reason: string | null;
+  id: string; kind: "edit" | "delete"; status: VehicleStatus; reason: string | null; requestReason: string | null;
 }
 export interface DeletedVehicleChange extends VehicleChange { plate: string }
 export interface RegisteredVehicle {
@@ -139,14 +139,18 @@ const adminVehicleService: VehicleService = {
 };
 
 export async function submitVehicleChange(
-  userId: string, vehicle: RegisteredVehicle, request: { kind: "delete" } | { kind: "edit"; fields: VehicleFields },
-) {
+  userId: string, vehicle: RegisteredVehicle, request: { kind: "delete" } | { kind: "edit"; fields: VehicleFields }, reason: string,
+): Promise<VehicleChange> {
+  const requestReason = reason.trim();
+  if (!requestReason || requestReason.length > 1000) throw new VehicleError("requestReason");
   await authorize(userId);
   if (request.kind === "edit") validateVehicleFields(request.fields, 32, 100);
   const mutation = request.kind === "edit"
     ? { kind: "edit", version: vehicle.version, changes: adminVehicleFields(request.fields) }
     : { kind: "delete", version: vehicle.version };
-  await vehicleResponse({ method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: vehicle.id, mutation }) });
+  const { data } = await vehicleResponse({ method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: vehicle.id, mutation, requestReason }) }) as { data: VehicleChange };
+  return data;
 }
 
 export const vehicleService = liveVehicleReviews ? adminVehicleService : demoVehicleService;
