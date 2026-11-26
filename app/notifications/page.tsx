@@ -6,10 +6,10 @@ import { Bell, CheckCheck, MapPin } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { useApp } from "@/components/providers/app-provider";
-import { bookingEnabled, notificationService } from "@/lib/services";
+import { notificationService, parkingMode } from "@/lib/services";
 
 export default function NotificationsPage() {
-  const { t, locale } = useLanguage();
+  const { t, locale, language } = useLanguage();
   const { user, zones, loading, notificationSnapshot, notificationError, refreshNotifications } = useApp();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,9 +28,10 @@ export default function NotificationsPage() {
       <p className="label-caps text-sm font-semibold text-[#7D000F]">{t("Notification Center")}</p>
       <h1 className="mt-2 flex items-center gap-3 text-3xl font-bold"><Bell />{t("การแจ้งเตือน")}</h1>
       <p className="mt-3">{t("ข่าวการจองและโซนที่คุณติดตาม • ")}{user?.name ?? t("ผู้เยี่ยมชม")}</p>
-      <p className="mt-2 text-sm text-[#59413F]">{t("แจ้งเตือนภายในเว็บสาธิตเท่านั้น ขณะปิดเว็บจะไม่มี Push การจองที่หมดอายุจะแสดงเมื่อเปิดกลับมา")}</p>
+      <p className="mt-2 text-sm text-[#59413F]">{parkingMode === "mock" ? t("แจ้งเตือนภายในเว็บสาธิตเท่านั้น ขณะปิดเว็บจะไม่มี Push การจองที่หมดอายุจะแสดงเมื่อเปิดกลับมา")
+        : language === "th" ? "การแจ้งเตือนจะแสดงในเว็บนี้ รวมถึงรายการจองที่หมดอายุเมื่อเปิดเว็บกลับมา" : "Notifications appear here, including expired bookings when you return."}</p>
     </section>
-    {t(loading ? <p className="mt-6">{t("กำลังโหลด…")}</p> : !bookingEnabled ? <p className="mt-6">{t("รอเชื่อมบริการแจ้งเตือนจริง")}</p> : !user ? <Link href="/login" className="primary-cta mt-6 inline-block rounded-xl px-5 py-3">{t("เลือกบัญชีสาธิตเพื่อดูการแจ้งเตือน")}</Link> :
+    {t(loading ? <p className="mt-6">{t("กำลังโหลด…")}</p> : !user ? <Link href="/login" className="primary-cta mt-6 inline-block rounded-xl px-5 py-3">{language === "th" ? "เข้าสู่ระบบเพื่อดูการแจ้งเตือน" : "Sign in to see notifications"}</Link> :
     <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
       <section className="card-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -54,7 +55,8 @@ export default function NotificationsPage() {
         <p className="mt-3 text-sm text-[#59413F]">{t("รับข้อความเมื่อช่องพร้อมจองใกล้เต็ม (เหลือไม่เกิน 30%) หรือเต็ม รวมผลการจองปัจจุบัน")}</p>
         <p className="mt-2 text-xs text-[#59413F]">{t("หากโซนใกล้เต็มหรือเต็มอยู่แล้ว จะมีข้อความแรกเมื่อติดตาม ไม่แจ้งซ้ำจนกว่าสถานะจะเปลี่ยน")}</p>
         <div className="mt-4 space-y-2">{t(zones.map(zone => <label key={zone.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[#F3F4F5] p-3"><span className="flex items-center gap-3"><strong className="zone-icon">{zone.id}</strong>{t(zone.name)}</span><input type="checkbox" aria-label={t(`ติดตามโซน ${zone.id}`)} checked={notificationSnapshot.userId === user.id && notificationSnapshot.followedZoneIds.includes(zone.id)} disabled={busy || Boolean(notificationError)} onChange={e => { const follow = e.target.checked; void act(() => notificationService.followZone(zone.id, follow, user.id)); }} role="switch" className="zone-watch-switch" /></label>))}</div>
-        <p className="mt-4 text-xs text-[#59413F]">{t("หยุดติดตามแล้วข้อความเดิมยังอยู่ โหมดสาธิตตรวจสถานะขณะเปิดเว็บ และไม่สามารถทราบการเปลี่ยนแปลงที่พลาดไประหว่างปิดเว็บ")}</p>
+        <p className="mt-4 text-xs text-[#59413F]">{parkingMode === "mock" ? t("หยุดติดตามแล้วข้อความเดิมยังอยู่ โหมดสาธิตตรวจสถานะขณะเปิดเว็บ และไม่สามารถทราบการเปลี่ยนแปลงที่พลาดไประหว่างปิดเว็บ")
+          : language === "th" ? "ระบบตรวจสถานะโซนที่ติดตามขณะเปิดเว็บ" : "Followed zones are checked while the site is open."}</p>
       </aside>
     </div>)}
   </PageContainer></main>;

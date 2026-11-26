@@ -19,7 +19,9 @@ export default function HomePage() {
   const summary = buildParkingSummary(zones);
   const mapZones: ZoneStatus[] = useMemo(() => zones.map(zone => {
     const availability = bookingSnapshot.availability.find(item => item.zoneId === zone.id);
-    const status = availability ? getParkingStatus(zone.hasData, zone.total - availability.bookable, zone.total) : zone.status;
+    const status = availability
+      ? getParkingStatus(zone.hasData && (zone.skipped === 0 || availability.bookable > 0), zone.total - availability.bookable, zone.total)
+      : zone.status;
     return ({
     zoneId: zone.id, totalSlots: zone.total, occupiedSlots: zone.occupied,
     availableSlots: zone.free, status: status === "nearly-full" ? "nearly_full" : status,
@@ -41,7 +43,7 @@ export default function HomePage() {
       <h2 className="display-font mt-2 text-4xl font-extrabold">{t("เลือกที่จอด ก่อนออกเดินทาง")}</h2>
       <p className="mt-3 text-[#59413F]">{t("สำรวจที่จอดรถในมหาวิทยาลัย")}{t(" • ")}{t(parkingMode === "mock" ? "ข้อมูลทั้งหมดเป็นสถานการณ์จำลอง" : "ข้อมูลล่าสุดที่ดึงจากระบบ")}</p>
       <div className="mt-5 flex flex-wrap gap-3">
-        <Link href="/find-spot" className="primary-cta rounded-xl px-5 py-3 font-semibold">{t("Book Now • จองที่จอดสาธิต")}</Link>
+        <Link href="/find-spot" className="primary-cta rounded-xl px-5 py-3 font-semibold">{parkingMode === "mock" ? t("Book Now • จองที่จอดสาธิต") : t("จองที่จอด")}</Link>
         <Link href="/parking-zones" className="secondary-cta rounded-xl px-5 py-3 font-semibold">{t("ดูทุกโซน")}</Link>
         <button onClick={() => void refresh()} className="rounded-xl bg-white px-5 py-3">{t("รีเฟรชข้อมูล")}</button>
       </div>

@@ -37,7 +37,7 @@ export function ZoneDetail({ zoneId }: { zoneId: string }) {
       </div>
       <div className="data-notice my-5">{language === "th" ? "ผังแสดงตำแหน่งโดยประมาณ คลิกช่องเพื่อดูรายละเอียด" : "Illustrative layout. Select a space to view details."}</div>
       {t(!zone.hasData ? <p>{t("ยังไม่มีข้อมูลสถานะของโซนนี้")}</p> : !current ? <p>{t("กำลังโหลดรายละเอียด…")}</p> : current.error ? <p role="alert">{t(current.error)}</p> : current.slots.length === 0 ? <p>{t("ยังไม่มีรายละเอียดช่องจอด")}</p> :
-        current.slots.every(slot => slot.total === 1) ? <ParkingPlan key={zoneId} zoneId={zoneId} slots={current.slots} /> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{t(current.slots.map(slot => <SubZoneCard key={slot.id} subZone={slot} />))}</div>)}
+        current.slots.every(slot => slot.total === 1) ? <ParkingPlan key={zoneId} zoneId={zoneId} slots={current.slots} /> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{t(current.slots.map(slot => <SubZoneCard key={slot.id} subZone={slot} zoneId={zoneId} />))}</div>)}
       <section className="card-surface mt-6 rounded-3xl p-6"><h2 className="text-xl font-bold">{t("ภาพจากกล้อง")}</h2><p className="mt-2">{t(parkingMode === "mock" ? "โหมดสาธิตไม่มีภาพจากกล้องจริง" : "รอการเชื่อมต่อภาพจากระบบกล้อง")}</p></section>
     </>)}
   </PageContainer></main>;

@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { ParkingZone } from "@/types/parking";
 import type { AppUser, BookingSnapshot, NotificationSnapshot } from "@/lib/services/contracts";
-import { authService, parkingService, bookingService, notificationService } from "@/lib/services";
+import { authService, parkingMode, parkingService, bookingService, notificationService } from "@/lib/services";
 import { demoStorageKey } from "@/lib/services/mock";
 
 const AppContext = createContext<{
@@ -23,8 +23,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notificationSnapshot, setNotificationSnapshot] = useState<NotificationSnapshot>({ userId: null, notifications: [], followedZoneIds: [] });
   const [notificationError, setNotificationError] = useState("");
   const refreshNotifications = useCallback(async () => {
-    try { const next = await notificationService.getSnapshot(); setNotificationSnapshot(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next); setNotificationError(""); }
-    catch { setNotificationSnapshot({ userId: null, notifications: [], followedZoneIds: [] }); setNotificationError("โหลดการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่"); }
+    const userId = currentUser.current?.id;
+    try {
+      const next = await notificationService.getSnapshot();
+      if (currentUser.current?.id !== userId) return;
+      setNotificationSnapshot(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+      setNotificationError("");
+    } catch {
+      if (currentUser.current?.id !== userId) return;
+      setNotificationSnapshot({ userId: null, notifications: [], followedZoneIds: [] });
+      setNotificationError("โหลดการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่");
+    }
   }, []);
   const refresh = useCallback(async () => {
     let session: AppUser | null;
@@ -38,6 +47,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setError(""); setLoading(false); return;
     }
     const [parking, booking] = await Promise.allSettled([parkingService.listZones(), bookingService.getSnapshot()]);
+    if (currentUser.current?.id !== session.id) return;
     setZones(previous => parking.status === "fulfilled" && JSON.stringify(previous) === JSON.stringify(parking.value) ? previous : parking.status === "fulfilled" ? parking.value : []);
     setError(parking.status === "rejected" ? "โหลดข้อมูลที่จอดไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่" : "");
     setLoading(false);
@@ -80,9 +90,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (active) await refreshNotifications();
       running = false;
     };
-    const timer = setInterval(() => void tick(), 1000);
-    window.addEventListener("focus", tick);
-    return () => { active = false; clearInterval(timer); window.removeEventListener("focus", tick); };
+    const timer = setInterval(() => void tick(), parkingMode === "mock" ? 1000 : 20_000);
+    const clock = setInterval(() => { if (document.visibilityState !== "hidden") setNow(Date.now()); }, 1000);
+    return () => { active = false; clearInterval(timer); clearInterval(clock); };
   }, [refreshNotifications, user]);
   async function signIn(id?: string) { await authService.signIn(id); await refresh(); }
   async function signOut() { await authService.signOut(); await refresh(); }

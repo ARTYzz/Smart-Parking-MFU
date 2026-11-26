@@ -1,7 +1,8 @@
 import { getAdminParkingZones, getParkingZoneDetails } from "@/lib/api";
-import type { AppUser, AuthService, BookingService, ParkingService, NotificationService } from "./contracts";
+import type { AppUser, AuthService, ParkingService } from "./contracts";
 import { mockNotificationService } from "./notifications";
-import { mockBookingService, demoBookingPolicies } from "./booking";
+import { mockBookingService } from "./booking";
+import { liveBookingService, liveNotificationService } from "./live-bookings";
 import { bindMockUser, mockParkingService } from "./mock";
 
 export const parkingMode = process.env.NEXT_PUBLIC_PARKING_MODE === "api" ? "api" : "mock";
@@ -36,19 +37,5 @@ const googleAuthService: AuthService = {
 };
 export const parkingService = parkingMode === "mock" ? mockParkingService : apiParkingService;
 export const authService = googleAuthService;
-export const bookingEnabled = parkingMode === "mock";
-const unavailableBookingService: BookingService = {
-  getPolicy: role => ({ ...demoBookingPolicies[role] }),
-  async getSnapshot() { return { bookings: [], events: [], availability: [] }; },
-  async getAvailableSlots() { throw new Error("รอเชื่อมบริการจองจริง"); },
-  async create() { throw new Error("รอเชื่อมบริการจองจริง"); },
-  async cancel() { throw new Error("รอเชื่อมบริการจองจริง"); },
-};
-export const bookingService = bookingEnabled ? mockBookingService : unavailableBookingService;
-const unavailableNotificationService: NotificationService = {
-  async getSnapshot() { return { userId: null, notifications: [], followedZoneIds: [] }; },
-  async markRead() { throw new Error("รอเชื่อมบริการแจ้งเตือนจริง"); },
-  async markAllRead() { throw new Error("รอเชื่อมบริการแจ้งเตือนจริง"); },
-  async followZone() { throw new Error("รอเชื่อมบริการแจ้งเตือนจริง"); },
-};
-export const notificationService = bookingEnabled ? mockNotificationService : unavailableNotificationService;
+export const bookingService = parkingMode === "mock" ? mockBookingService : liveBookingService;
+export const notificationService = parkingMode === "mock" ? mockNotificationService : liveNotificationService;

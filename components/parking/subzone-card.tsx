@@ -7,15 +7,16 @@ import { VehicleStat } from "@/components/parking/vehicle-stat";
 
 interface SubZoneCardProps {
   subZone: ParkingSubZone;
+  zoneId: string;
 }
 
-export function SubZoneCard({ subZone }: SubZoneCardProps) {
+export function SubZoneCard({ subZone, zoneId }: SubZoneCardProps) {
   const { t } = useLanguage();
   const occupancyRate = Math.round(subZone.occupancyRate * 100);
 
   return (
     <article className="card-surface rounded-3xl p-5">
-      <SlotReservationBadge slotId={subZone.id} />
+      <SlotReservationBadge slotId={subZone.id} zoneId={zoneId} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="label-caps text-xs font-semibold text-[#7D000F]/80">{t("พื้นที่ย่อย")}</p>

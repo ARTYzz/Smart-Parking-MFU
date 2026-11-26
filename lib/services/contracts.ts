@@ -21,6 +21,7 @@ export interface Booking {
 export interface BookingPolicy { role: UserRole; maxActiveBookings: number; maxMinutes: number; advanceHours: number }
 export interface BookingRequest {
   userId: string; zoneId: string; vehicleType: VehicleType;
+  requestId?: string;
   /** null means start now, resolved atomically when confirming. */
   startsAt: string | null; durationMinutes: number;
 }
@@ -34,6 +35,7 @@ export interface BookingAvailability {
 }
 export interface BookingSnapshot {
   bookings: Booking[]; events: BookingEvent[]; availability: BookingAvailability[];
+  policy?: BookingPolicy; approvedVehicleTypes?: VehicleType[];
 }
 export interface BookingService {
   getPolicy(role: UserRole): BookingPolicy;

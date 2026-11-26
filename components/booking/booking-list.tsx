@@ -3,7 +3,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import Link from "next/link";
 import { useState } from "react";
 import { useApp } from "@/components/providers/app-provider";
-import { bookingEnabled, bookingService } from "@/lib/services";
+import { bookingService, parkingMode } from "@/lib/services";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -32,10 +32,10 @@ export function BookingList({ history = false }: { history?: boolean }) {
     <section className="page-intro">
       <p className="label-caps text-sm text-[#7D000F]">{t(history ? "Booking history" : "My Booking")}</p>
       <h1 className="mt-2 text-3xl font-bold">{t(history ? "ประวัติการจอง" : "การจองของฉัน")}</h1>
-      <p className="data-notice mt-5">{t(user?.name ?? "เลือกบัญชีสาธิตเพื่อดูการจอง")}{t(" • ข้อมูลจำลองในเบราว์เซอร์นี้")}</p>
+      <p className="data-notice mt-5">{user?.name ?? (language === "th" ? "เข้าสู่ระบบเพื่อดูการจอง" : "Sign in to see your bookings")}{parkingMode === "mock" && t(" • ข้อมูลจำลองในเบราว์เซอร์นี้")}</p>
       <div className="mt-4 flex gap-4"><Link href="/find-spot" className="primary-cta rounded-xl px-4 py-2 text-sm font-bold">{t("จองที่จอด")}</Link><Link href={history ? "/my-booking" : "/history"} className="underline">{t(history ? "การจองปัจจุบัน" : "ดูประวัติ")}</Link></div>
     </section>
-    {t(loading ? <p className="mt-5">{t("กำลังโหลด…")}</p> : !bookingEnabled ? <p className="mt-5">{t("รอเชื่อมบริการจองจริง")}</p> : !user ? <Link href="/login" className="primary-cta mt-5 inline-block rounded-xl px-5 py-3">{t("เลือกบัญชีสาธิต")}</Link> : <>
+    {t(loading ? <p className="mt-5">{t("กำลังโหลด…")}</p> : !user ? <Link href="/login" className="primary-cta mt-5 inline-block rounded-xl px-5 py-3">{language === "th" ? "เข้าสู่ระบบ" : "Sign in"}</Link> : <>
       {t(bookingError && <p role="alert">{t(bookingError)} <button onClick={() => void refresh()} className="underline">{t("ลองใหม่")}</button></p>)}
       {t(message && <p role="status" className="mt-4 rounded-xl bg-amber-50 p-4">{t(message)}</p>)}
       {t(!history && !bookingError && bookings.length === 0 && <p className="mt-6 rounded-2xl bg-white p-6">{t(history ? "ยังไม่มีประวัติการจอง" : "ไม่มีการจองที่ยังไม่สิ้นสุด")}</p>)}
