@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requestAuth } from "@/lib/auth/server";
 import { adminFetch } from "@/lib/admin-api";
 
-async function forward(request: NextRequest, method: "GET" | "POST") {
-  if (method === "POST" && request.headers.get("origin") !== request.nextUrl.origin) {
+async function forward(request: NextRequest, method: "GET" | "POST" | "PUT") {
+  if (method !== "GET" && request.headers.get("origin") !== request.nextUrl.origin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   try {
@@ -20,6 +20,15 @@ async function forward(request: NextRequest, method: "GET" | "POST") {
     let upstream: Response;
     if (method === "GET") {
       upstream = await adminFetch(`${path}?${new URLSearchParams({ applicantId: user.id })}`, { headers });
+    } else if (method === "PUT") {
+      const body = await request.json().catch(() => null);
+      if (typeof body?.id !== "string" || !/^[a-z0-9][a-z0-9_-]{0,99}$/i.test(body.id)) {
+        return auth.finish(NextResponse.json({ error: "Invalid vehicle" }, { status: 422 }));
+      }
+      upstream = await adminFetch(`${path}/${encodeURIComponent(body.id)}/changes`, {
+        method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ applicantId: user.id, mutation: body.mutation }),
+      });
     } else {
       const form = await request.formData().catch(() => null);
       const submissionId = form?.get("id");
@@ -43,3 +52,4 @@ async function forward(request: NextRequest, method: "GET" | "POST") {
 
 export function GET(request: NextRequest) { return forward(request, "GET"); }
 export function POST(request: NextRequest) { return forward(request, "POST"); }
+export function PUT(request: NextRequest) { return forward(request, "PUT"); }

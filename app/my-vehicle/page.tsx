@@ -5,7 +5,8 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { useApp } from "@/components/providers/app-provider";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { vehicleService, vehicleTypes, liveVehicleReviews, vehicleEvidenceLimit, VehicleError, type RegisteredVehicle, type VehicleCategory } from "@/lib/services/vehicles";
+import { vehicleService, vehicleTypes, liveVehicleReviews, vehicleEvidenceLimit, VehicleError, type RegisteredVehicle, type VehicleCategory, type DeletedVehicleChange } from "@/lib/services/vehicles";
+import { VehicleChangeForm } from "@/components/parking/vehicle-change-form";
 
 const categories = { sedan: ["รถเก๋งซีดาน", "Sedan"], hatchback: ["แฮทช์แบ็ก", "Hatchback"], suv: ["เอสยูวี / ครอสโอเวอร์", "SUV / Crossover"], pickup: ["กระบะ", "Pickup"], van: ["รถตู้ / MPV", "Van / MPV"], motorcycle: ["มอเตอร์ไซค์", "Motorcycle"], other: ["อื่น ๆ", "Other"] };
 export default function MyVehiclePage() {
@@ -17,6 +18,7 @@ function VehicleManager({ userId }: { userId: string }) {
   const en = language === "en";
   const text = (th: string, english: string) => en ? english : th;
   const [vehicles, setVehicles] = useState<RegisteredVehicle[]>([]);
+  const [deleted, setDeleted] = useState<DeletedVehicleChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,10 +30,10 @@ function VehicleManager({ userId }: { userId: string }) {
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
-    vehicleService.list(userId).then(rows => { if (active.current) setVehicles(rows); }).catch(e => { if (active.current) setError(e instanceof VehicleError ? e.message : "storage"); }).finally(() => { if (active.current) setLoading(false); });
+    vehicleService.list(userId).then(rows => { if (active.current) { setVehicles(rows.vehicles); setDeleted(rows.deleted); } }).catch(e => { if (active.current) setError(e instanceof VehicleError ? e.message : "storage"); }).finally(() => { if (active.current) setLoading(false); });
     return () => { active.current = false; };
   }, [userId]);
-  async function reload() { const rows = await vehicleService.list(userId); if (active.current) setVehicles(rows); }
+  async function reload() { const rows = await vehicleService.list(userId); if (active.current) { setVehicles(rows.vehicles); setDeleted(rows.deleted); } }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     const data = new FormData(event.currentTarget);
@@ -101,10 +103,19 @@ function VehicleManager({ userId }: { userId: string }) {
           <div className="my-4 rounded-xl border-2 border-[#e1d9ce] bg-[#faf8f4] px-5 py-3 text-center"><p className="text-2xl font-bold tracking-wider">{vehicle.plate}</p><p className="mt-1 text-xs text-[#857367]">{vehicle.province}</p></div>
           <p className="text-xs text-[#8a786c]">{text("ส่งคำขอ", "Submitted")} · {new Date(vehicle.submittedAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}</p>
           {vehicle.reviewNote && <p className="mt-3 text-sm">{vehicle.reviewNote}</p>}
+          {liveVehicleReviews && <VehicleChangeForm key={vehicle.version} vehicle={vehicle} refresh={reload} categoryLabel={type => categories[type][en ? 1 : 0]} />}
           {!liveVehicleReviews && <><p className="mt-3 text-xs leading-6 text-[#8a786c]">{text("ระบบแอดมินยังไม่เปิดใช้งาน คำขอสาธิตจะคงสถานะรอตรวจสอบ", "Admin review is not available yet. Demo requests remain pending.")}</p>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#eee6df] pt-4"><button onClick={() => download(vehicle)} className="flex items-center gap-1.5 text-xs font-semibold text-[#7d000f]"><Download size={14} />{text("ดาวน์โหลดหลักฐาน", "Download evidence")}</button><button disabled={busy} onClick={() => setDeleting(vehicle.id)} className="flex items-center gap-1.5 text-xs text-[#8c7066]"><Trash2 size={14} />{text("ลบคำขอ", "Delete request")}</button></div>
           {deleting === vehicle.id && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm"><p>{text("ลบรถและไฟล์หลักฐานนี้?", "Delete this vehicle and its evidence?")}</p><div className="mt-3 flex gap-4"><button disabled={busy} onClick={() => void remove(vehicle.id)} className="font-semibold text-red-800">{text("ยืนยันลบ", "Confirm deletion")}</button><button disabled={busy} onClick={() => setDeleting(null)}>{text("ยกเลิก", "Cancel")}</button></div></div>}</>}
         </article>)}</div>}
+        {deleted.length > 0 && <div className="mt-4 border-t border-[#eee6df] pt-4 text-sm">
+          <h3 className="font-semibold">{text("ผลคำขอของรถที่ถูกลบ", "Decisions for removed vehicles")}</h3>
+          <ul className="mt-2 space-y-1">{deleted.map(change => <li key={change.id}>
+            {change.plate} · {change.kind === "edit" ? text("ขอแก้ไข", "Edit request") : text("ขอลบ", "Removal request")}
+            {change.status === "approved" ? ` · ${text("อนุมัติแล้ว", "Approved")}` : ` · ${text("ปฏิเสธแล้ว", "Rejected")}`}
+            {change.reason ? ` · ${change.reason}` : ""}
+          </li>)}</ul>
+        </div>}
       </section>
       <section className="card-surface p-5"><h2 className="font-bold">{text("ขั้นตอนการตรวจสอบ", "Review process")}</h2>
       <div className="mt-6 grid gap-3 text-xs sm:grid-cols-3">{[[Plus, text("1. เพิ่มรถและหลักฐาน", "1. Add vehicle & evidence")], [Clock3, text("2. รอผู้ดูแลตรวจสอบ", "2. Await admin review")], [ShieldCheck, text("3. รับผลการยืนยัน", "3. Receive a decision")]].map(([Icon, label], i) => { const Symbol = Icon as typeof Plus; return <div key={i} className="flex items-center gap-2 rounded-xl bg-white/80 p-3 text-[#7d000f]"><Symbol size={16} />{label as string}</div>; })}</div>
